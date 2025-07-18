@@ -1,0 +1,252 @@
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { X, Percent, CheckSquare, Calendar } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from '../firebase';
+
+function WeeklyReviewModal({ isOpen, onClose, staffList }) {
+    const [weeklyData, setWeeklyData] = useState({});
+    const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
+    const [saving, setSaving] = useState(false);
+
+    // Get current week info
+    function getCurrentWeek() {
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday as start of week
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        endOfWeek.setHours(23, 59, 59, 999);
+
+        return {
+            start: startOfWeek,
+            end: endOfWeek,
+            weekNumber: getWeekNumber(startOfWeek),
+            year: startOfWeek.getFullYear()
+        };
+    }
+
+    // Calculate week number (ISO week)
+    function getWeekNumber(date) {
+        const firstThursday = new Date(date.getFullYear(), 0, 4);
+        const firstThursdayWeekDay = firstThursday.getDay() || 7;
+        firstThursday.setDate(firstThursday.getDate() + 1 - firstThursdayWeekDay);
+
+        const targetThursday = new Date(date);
+        targetThursday.setDate(targetThursday.getDate() - (targetThursday.getDay() || 7) + 4);
+
+        return Math.ceil((targetThursday - firstThursday) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    }
+
+    // Format date for display
+    function formatDate(date) {
+        return date.toLocaleDateString('no-NO', {
+            day: 'numeric',
+            month: 'long'
+        });
+    }
+
+    // Change week
+    function changeWeek(direction) {
+        const newStart = new Date(selectedWeek.start);
+        newStart.setDate(newStart.getDate() + (direction * 7));
+
+        const newEnd = new Date(newStart);
+        newEnd.setDate(newStart.getDate() + 6);
+        newEnd.setHours(23, 59, 59, 999);
+
+        setSelectedWeek({
+            start: newStart,
+            end: newEnd,
+            weekNumber: getWeekNumber(newStart),
+            year: newStart.getFullYear()
+        });
+    }
+
+    const handleDataChange = (staffId, field, value) => {
+        setWeeklyData(prev => ({
+            ...prev,
+            [staffId]: {
+                ...prev[staffId],
+                [field]: value
+            }
+        }));
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            // Prepare the weekly review data
+            const reviewData = {
+                weekNumber: selectedWeek.weekNumber,
+                year: selectedWeek.year,
+                weekStart: selectedWeek.start,
+                weekEnd: selectedWeek.end,
+                dateRange: `${formatDate(selectedWeek.start)} - ${formatDate(selectedWeek.end)}`,
+                staffData: weeklyData,
+                createdAt: serverTimestamp(),
+                createdBy: 'admin' // You could use current user's email here
+            };
+
+            // Save to Firestore
+            await addDoc(collection(db, 'weeklyReviews'), reviewData);
+
+            alert(`Ukentlig gjennomgang for uke ${selectedWeek.weekNumber} er lagret!`);
+            setWeeklyData({});
+            onClose();
+        } catch (error) {
+            console.error('Error saving weekly review:', error);
+            alert('Feil ved lagring: ' + error.message);
+        }
+        setSaving(false);
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4" style={{ isolation: 'isolate' }}>
+                    <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl w-full max-w-3xl border-2 border-[#009A44] shadow-xl flex flex-col h-full max-h-[85vh] relative z-10" style={{ backgroundColor: '#ffffff' }}>
+                        <header className="flex-shrink-0 p-6 border-b border-gray-200">
+                            <div className="flex justify-between items-start mb-4">
+                                <h3 className="text-xl font-bold text-gray-900">Ukentlig Gjennomgang</h3>
+                                <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Week Navigation */}
+                            <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                                <button
+                                    onClick={() => changeWeek(-1)}
+                                    className="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+                                >
+                                    ← Forrige uke
+                                </button>
+
+                                <div className="text-center">
+                                    <div className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                                        <Calendar size={20} />
+                                        Uke {selectedWeek.weekNumber}, {selectedWeek.year}
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                        {formatDate(selectedWeek.start)} - {formatDate(selectedWeek.end)}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => changeWeek(1)}
+                                    className="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+                                >
+                                    Neste uke →
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="flex-grow p-6 overflow-y-auto space-y-4">
+                            <div className="text-sm text-gray-600 mb-4">
+                                Registrer ukentlige resultater for alle ansatte i uke {selectedWeek.weekNumber}.
+                            </div>
+
+                            {staffList.map(staff => (
+                                <div key={staff.id} className="p-4 bg-gray-50 rounded-lg">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="font-semibold text-gray-900">{staff.name}</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Kundeklubb %
+                                            </label>
+                                            <div className="relative">
+                                                <Percent size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    placeholder="0-100"
+                                                    value={weeklyData[staff.id]?.kundeklubb || ''}
+                                                    onChange={(e) => handleDataChange(staff.id, 'kundeklubb', e.target.value)}
+                                                    className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Kunnskap Sjekkliste (5 ⭐)
+                                            </label>
+                                            <div className="flex items-center gap-2 py-2">
+                                                <CheckSquare size={16} className="text-gray-400"/>
+                                                <label className="text-sm text-gray-700">Alle punkter OK?</label>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={weeklyData[staff.id]?.kunnskapSjekkliste || false}
+                                                    onChange={(e) => handleDataChange(staff.id, 'kunnskapSjekkliste', e.target.checked)}
+                                                    className="h-5 w-5 rounded border-gray-300 text-[#009A44] focus:ring-[#009A44]"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Todolist denne uken
+                                        </label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <label className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name={`todolist-${staff.id}`}
+                                                    value="fylt-ut-1-uke"
+                                                    checked={weeklyData[staff.id]?.todolist === 'fylt-ut-1-uke'}
+                                                    onChange={(e) => handleDataChange(staff.id, 'todolist', e.target.value)}
+                                                    className="text-[#009A44] focus:ring-[#009A44]"
+                                                />
+                                                <span className="text-sm">Fylt ut 1 uke (1 ⭐)</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name={`todolist-${staff.id}`}
+                                                    value="alt-ja-1-uke"
+                                                    checked={weeklyData[staff.id]?.todolist === 'alt-ja-1-uke'}
+                                                    onChange={(e) => handleDataChange(staff.id, 'todolist', e.target.value)}
+                                                    className="text-[#009A44] focus:ring-[#009A44]"
+                                                />
+                                                <span className="text-sm">Alt JA 1 uke (2 ⭐)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <footer className="flex-shrink-0 flex justify-between items-center p-6 border-t border-gray-200">
+                            <div className="text-sm text-gray-600">
+                                Data vil bli lagret i Firestore som en ukentlig rapport
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                >
+                                    Avbryt
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving || Object.keys(weeklyData).length === 0}
+                                    className="px-6 py-2 bg-[#009A44] text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {saving ? 'Lagrer...' : `Lagre Uke ${selectedWeek.weekNumber}`}
+                                </button>
+                            </div>
+                        </footer>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+}
+export default WeeklyReviewModal;
