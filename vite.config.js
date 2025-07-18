@@ -8,9 +8,17 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
-    base: '/startrackerv2/',
+    base: './',
     build: {
         outDir: 'dist',
         assetsDir: 'assets',
+        rollupOptions: {
+            output: {
+                manualChunks: undefined,
+            },
+        },
     },
+    server: {
+        open: true
+    }
 })
