@@ -13,12 +13,25 @@ const ElkjopBanner = () => (
 function SignUp() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        // Check if passwords match
+        if (password !== confirmPassword) {
+            setError('Passordene stemmer ikke overens.');
+            return;
+        }
+
+        // Check password length
+        if (password.length < 6) {
+            setError('Passordet må være minst 6 tegn langt.');
+            return;
+        }
 
         // 1. Check if email is whitelisted
         const whitelistRef = doc(db, 'whitelist', email.toLowerCase());
@@ -37,6 +50,8 @@ function SignUp() {
         } catch (err) {
             if (err.code === 'auth/email-already-in-use') {
                 setError('Denne e-posten er allerede i bruk.');
+            } else if (err.code === 'auth/weak-password') {
+                setError('Passordet er for svakt. Velg et sterkere passord.');
             } else {
                 setError('Kunne ikke opprette konto. Prøv igjen.');
             }
@@ -65,6 +80,17 @@ function SignUp() {
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
                         <input type="password" required placeholder="Passord (minst 6 tegn)" value={password} onChange={(e) => setPassword(e.target.value)}
                                className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
+                    </div>
+                    <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                        <input type="password" required placeholder="Gjenta passord" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                               className={`w-full pl-10 pr-3 py-3 bg-background border rounded-lg text-on-surface focus:ring-2 outline-none transition-all ${
+                                   confirmPassword && password !== confirmPassword 
+                                       ? 'border-red-500 focus:ring-red-500' 
+                                       : confirmPassword && password === confirmPassword
+                                       ? 'border-green-500 focus:ring-green-500'
+                                       : 'border-border-color focus:ring-primary'
+                               }`}/>
                     </div>
 
                     {error && <p className="text-danger text-sm text-center">{error}</p>}

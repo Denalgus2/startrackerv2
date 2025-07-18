@@ -8,4 +8,9 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
+    base: '/startrackerv2/',
+    build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
+    },
 })
