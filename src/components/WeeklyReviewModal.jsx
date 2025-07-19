@@ -30,16 +30,27 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
         };
     }
 
-    // Calculate week number (ISO week)
+    // Calculate week number (corrected for Norwegian week numbering)
     function getWeekNumber(date) {
-        const firstThursday = new Date(date.getFullYear(), 0, 4);
-        const firstThursdayWeekDay = firstThursday.getDay() || 7;
-        firstThursday.setDate(firstThursday.getDate() + 1 - firstThursdayWeekDay);
+        // Create a copy of the date to avoid modifying the original
+        const targetDate = new Date(date);
 
-        const targetThursday = new Date(date);
-        targetThursday.setDate(targetThursday.getDate() - (targetThursday.getDay() || 7) + 4);
+        // Set to nearest Thursday (current date + 4 - current day of week)
+        // Sunday = 0, Monday = 1, etc. We want Monday = 1, Sunday = 7
+        const dayOfWeek = targetDate.getDay();
+        const daysToThursday = 4 - (dayOfWeek === 0 ? 7 : dayOfWeek);
+        targetDate.setDate(targetDate.getDate() + daysToThursday);
 
-        return Math.ceil((targetThursday - firstThursday) / (7 * 24 * 60 * 60 * 1000)) + 1;
+        // Get the year of this Thursday
+        const year = targetDate.getFullYear();
+
+        // Find January 4th of this year (which is always in week 1)
+        const jan4 = new Date(year, 0, 4);
+
+        // Calculate the difference in weeks
+        const weekNumber = Math.ceil(((targetDate - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+
+        return weekNumber;
     }
 
     // Format date for display
