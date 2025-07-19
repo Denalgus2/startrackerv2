@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Plus, List, Calendar } from 'lucide-react';
+import { User, Star, Plus, List, Calendar, Trash2 } from 'lucide-react';
 import AddSaleModal from './AddSaleModal';
 import StaffHistoryModal from './StaffHistoryModal';
 import ShiftCalendarModal from './ShiftCalendarModal';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import { doc, updateDoc, increment, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
 function StaffCard({ staffMember, areStarsHidden }) {
     const [isSaleModalOpen, setSaleModalOpen] = useState(false);
     const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
     const [isCalendarOpen, setCalendarOpen] = useState(false);
+    const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
@@ -21,6 +24,31 @@ function StaffCard({ staffMember, areStarsHidden }) {
         const staffRef = doc(db, 'staff', staffMember.id);
         await updateDoc(staffRef, { shifts: increment(numShifts) });
         setCalendarOpen(false);
+    };
+
+    const handleDeleteStaff = async () => {
+        setIsDeleting(true);
+        try {
+            // Delete all sales records for this staff member
+            const salesQuery = query(collection(db, 'sales'), where('staffId', '==', staffMember.id));
+            const salesSnapshot = await getDocs(salesQuery);
+
+            // Delete each sales record
+            const deletePromises = salesSnapshot.docs.map(saleDoc =>
+                deleteDoc(doc(db, 'sales', saleDoc.id))
+            );
+            await Promise.all(deletePromises);
+
+            // Delete the staff member document
+            await deleteDoc(doc(db, 'staff', staffMember.id));
+
+            setDeleteModalOpen(false);
+        } catch (error) {
+            console.error('Error deleting staff member:', error);
+            alert('Det oppstod en feil ved sletting av ansatt. Prøv igjen.');
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     return (
@@ -37,9 +65,18 @@ function StaffCard({ staffMember, areStarsHidden }) {
                                 <p className="text-sm text-on-surface-secondary">{staffMember.shifts || 0} vakter</p>
                             </div>
                         </div>
-                        <button onClick={() => setCalendarOpen(true)} className="p-2 rounded-lg hover:bg-background text-on-surface-secondary">
-                            <Calendar size={20}/>
-                        </button>
+                        <div className="flex gap-1">
+                            <button onClick={() => setCalendarOpen(true)} className="p-2 rounded-lg hover:bg-background text-on-surface-secondary">
+                                <Calendar size={20}/>
+                            </button>
+                            <button
+                                onClick={() => setDeleteModalOpen(true)}
+                                className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+                                title="Slett ansatt"
+                            >
+                                <Trash2 size={20}/>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="bg-background p-4 rounded-lg text-center">
@@ -67,6 +104,13 @@ function StaffCard({ staffMember, areStarsHidden }) {
             <AddSaleModal isOpen={isSaleModalOpen} onClose={() => setSaleModalOpen(false)} staffId={staffMember.id} staffName={staffMember.name} />
             <StaffHistoryModal isOpen={isHistoryModalOpen} onClose={() => setHistoryModalOpen(false)} staffMember={staffMember} />
             <ShiftCalendarModal isOpen={isCalendarOpen} onClose={() => setCalendarOpen(false)} onSave={handleShiftsSave}/>
+            <DeleteConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={handleDeleteStaff}
+                staffName={staffMember.name}
+                isDeleting={isDeleting}
+            />
         </>
     );
 }
