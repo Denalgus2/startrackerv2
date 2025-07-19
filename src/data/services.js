@@ -6,7 +6,7 @@ export const serviceCategories = {
         '500kr+': 2,
     },
     'AVS/Support': {
-        'MOBILFUSM x2': 1,
+        'MOBOFUSM': 1,
         'Teletime15 x3': 1,
         'Pctime15 x3': 1,
         'Mdatime15 x3': 1,
