@@ -105,13 +105,27 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
 
             // Add each bilag as a sale record
             for (const entry of bilagEntries) {
+                // Calculate stars for this individual sale based on multiplier logic
+                let starsForThisSale = 0;
+                const service = entry.service;
+
+                // Check if this is a multiplier service
+                if (service.includes(' x2') || service.includes(' x3')) {
+                    // For multiplier services, individual sales get 0 stars
+                    // Stars are only awarded when the multiplier threshold is reached
+                    starsForThisSale = 0;
+                } else {
+                    // Non-multiplier services get their full star value
+                    starsForThisSale = serviceCategories[entry.category][entry.service];
+                }
+
                 await addDoc(collection(db, 'sales'), {
                     staffId: selectedStaff,
                     staffName: staffMember.name,
                     bilag: entry.bilag,
                     category: entry.category,
                     service: entry.service,
-                    stars: serviceCategories[entry.category][entry.service],
+                    stars: starsForThisSale,
                     timestamp: serverTimestamp()
                 });
             }

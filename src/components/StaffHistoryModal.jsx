@@ -86,7 +86,21 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
     const saveEdit = async (sale) => {
         try {
             const oldStars = sale.stars;
-            const newStars = serviceCategories[editForm.category][editForm.service];
+
+            // Calculate new stars based on multiplier logic
+            let newStars = 0;
+            const service = editForm.service;
+
+            // Check if this is a multiplier service
+            if (service.includes(' x2') || service.includes(' x3')) {
+                // For multiplier services, individual sales get 0 stars
+                // Stars are only awarded when the multiplier threshold is reached
+                newStars = 0;
+            } else {
+                // Non-multiplier services get their full star value
+                newStars = serviceCategories[editForm.category][editForm.service];
+            }
+
             const starDifference = newStars - oldStars;
 
             // Update the sale record

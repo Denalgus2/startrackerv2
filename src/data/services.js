@@ -1,7 +1,7 @@
 export const serviceCategories = {
     Forsikring: {
-        'Mindre enn 100kr x3': 1,
-        '100-299kr x2': 1,
+        'Mindre enn 100kr x3': 1,  // Gives 1 star every 3 sales
+        '100-299kr x2': 1,         // Gives 1 star every 2 sales
         '300-499kr': 1,
         '500-999kr': 2,
         '1000-1499kr': 3,
@@ -9,16 +9,16 @@ export const serviceCategories = {
     },
     'AVS/Support': {
         'MOBOFUSM': 1,
-        'Teletime15 x3': 1,
-        'Pctime15 x3': 1,
-        'Mdatime15 x3': 1,
-        'Teletime30 x2': 1,
-        'Pctime30 x2': 1,
-        'Mdatime30 x2': 1,
+        'Teletime15 x3': 1,        // Gives 1 star every 3 sales
+        'Pctime15 x3': 1,          // Gives 1 star every 3 sales
+        'Mdatime15 x3': 1,         // Gives 1 star every 3 sales
+        'Teletime30 x2': 1,        // Gives 1 star every 2 sales
+        'Pctime30 x2': 1,          // Gives 1 star every 2 sales
+        'Mdatime30 x2': 1,         // Gives 1 star every 2 sales
         'Teletime60': 1,
         'Pctime60': 1,
         'Mdatime60': 1,
-        'RTGWEARABLES x2': 1,
+        'RTGWEARABLES x2': 1,      // Gives 1 star every 2 sales
         'Annen RTG': 1,
         'SUPPORTAVTALE 6mnd': 2,
         'SUPPORTAVTALE 12mnd': 3,

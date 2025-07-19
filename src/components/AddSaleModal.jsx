@@ -23,6 +23,14 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     };
 
     useEffect(() => {
+        if (formData.category === 'Forsikring') {
+            const service = getForsikringService(forsikringAmount);
+            setFormData(prev => ({ ...prev, service: service }));
+        }
+    }, [forsikringAmount, formData.category]);
+
+
+    useEffect(() => {
         if (isOpen && staffId) {
             setFormData({ bilag: '', category: '', service: '' });
             setForsikringAmount('');
@@ -239,8 +247,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                                 <div className="flex items-center gap-2">
                                                     {multiplierInfo.isMultiplier && (
                                                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                            multiplierInfo.afterAdding >= multiplierInfo.needed 
-                                                                ? 'bg-green-100 text-green-800' 
+                                                            multiplierInfo.afterAdding >= multiplierInfo.needed
+                                                                ? 'bg-green-100 text-green-800'
                                                                 : 'bg-yellow-100 text-yellow-800'
                                                         }`}>
                                                             {multiplierInfo.existing}/{multiplierInfo.needed} → {multiplierInfo.afterAdding}/{multiplierInfo.needed}
@@ -281,4 +289,3 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 }
 
 export default AddSaleModal;
-
