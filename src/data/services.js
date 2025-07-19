@@ -1,12 +1,12 @@
 export const serviceCategories = {
     Forsikring: {
-        '<100 kr x3': 1,
-        '<300 kr x2': 1,
-        '<500 kr': 1,
-        '>500 kr': 2,
+        'Mindre enn 100kr x3': 1,
+        '100-299kr x2': 1,
+        '300-499kr': 1,
+        '500kr+': 2,
     },
     'AVS/Support': {
-        'MOBILFUSISM x2': 1,
+        'MOBILFUSM x2': 1,
         'Teletime15 x3': 1,
         'Pctime15 x3': 1,
         'Mdatime15 x3': 1,
@@ -19,7 +19,7 @@ export const serviceCategories = {
         'RTGWEARABLES x2': 1,
         'Annen RTG': 1,
         'SUPPORTAVTALE 6mnd': 2,
-        'SUPPORTAVTALE 12mnd': 2,
+        'SUPPORTAVTALE 12mnd': 3,
         'SUPPORTAVTALE 24mnd': 4,
         'SUPPORTAVTALE 36mnd': 5,
         'Installasjon hvitevare': 3,
