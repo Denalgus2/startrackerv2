@@ -8,7 +8,7 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
-    base: './',
+    base: process.env.NODE_ENV === 'production' ? '/startrackerv2/' : '/',
     build: {
         outDir: 'dist',
         assetsDir: 'assets',

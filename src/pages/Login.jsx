@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, KeyRound } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 // Component for the Elkjøp banner/logo
 const ElkjopBanner = () => (
@@ -11,7 +12,7 @@ const ElkjopBanner = () => (
 );
 
 function Login() {
-    const [email, setEmail] = useState('');
+    const [emailOrUsername, setEmailOrUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -19,11 +20,33 @@ function Login() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            let emailToUse = emailOrUsername;
+
+            // Check if input looks like a username (no @ symbol)
+            if (!emailOrUsername.includes('@')) {
+                // Look up the email associated with this username
+                const usernameRef = doc(db, 'usernames', emailOrUsername.toLowerCase());
+                const usernameSnap = await getDoc(usernameRef);
+
+                if (!usernameSnap.exists()) {
+                    setError('Brukernavn eller e-post ikke funnet.');
+                    return;
+                }
+
+                emailToUse = usernameSnap.data().email;
+            }
+
+            await signInWithEmailAndPassword(auth, emailToUse, password);
             navigate('/');
         } catch (err) {
-            setError('Feil e-post eller passord.');
+            console.error('Login error:', err);
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                setError('Feil brukernavn/e-post eller passord.');
+            } else {
+                setError('Innlogging feilet. Prøv igjen.');
+            }
         }
     };
 
@@ -46,7 +69,7 @@ function Login() {
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                            <input type="email" required placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)}
+                            <input type="text" required placeholder="E-post eller brukernavn" value={emailOrUsername} onChange={(e) => setEmailOrUsername(e.target.value)}
                                    className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                         </div>
                         <div className="relative">

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UserPlus, Mail, KeyRound } from 'lucide-react';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { UserPlus, Mail, KeyRound, User } from 'lucide-react';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const ElkjopBanner = () => (
@@ -12,6 +12,7 @@ const ElkjopBanner = () => (
 
 function SignUp() {
     const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -33,19 +34,61 @@ function SignUp() {
             return;
         }
 
-        // 1. Check if email is whitelisted
-        const whitelistRef = doc(db, 'whitelist', email.toLowerCase());
-        const docSnap = await getDoc(whitelistRef);
-
-        if (!docSnap.exists()) {
-            setError("Denne e-postadressen er ikke godkjent for registrering.");
+        // Check if username is provided and valid
+        if (!username.trim() || username.length < 3) {
+            setError('Brukernavn må være minst 3 tegn langt.');
             return;
         }
 
-        // 2. Create user if whitelisted
+        // Check if username contains only valid characters (alphanumeric, underscore, dash)
+        if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+            setError('Brukernavn kan kun inneholde bokstaver, tall, _ og -.');
+            return;
+        }
+
         try {
+            // Check if username is already taken
+            const usernameRef = doc(db, 'usernames', username.toLowerCase());
+            const usernameSnap = await getDoc(usernameRef);
+
+            if (usernameSnap.exists()) {
+                setError('Dette brukernavnet er allerede tatt.');
+                return;
+            }
+
+            // Check if email is whitelisted
+            const whitelistRef = doc(db, 'whitelist', email.toLowerCase());
+            const docSnap = await getDoc(whitelistRef);
+
+            if (!docSnap.exists()) {
+                setError("Denne e-postadressen er ikke godkjent for registrering.");
+                return;
+            }
+
+            // Create user if whitelisted and username is available
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            await sendEmailVerification(userCredential.user);
+            const user = userCredential.user;
+
+            // Update the user profile with the username
+            await updateProfile(user, {
+                displayName: username
+            });
+
+            // Store username mapping in Firestore
+            await setDoc(usernameRef, {
+                email: email.toLowerCase(),
+                uid: user.uid,
+                createdAt: new Date()
+            });
+
+            // Store user data in users collection
+            await setDoc(doc(db, 'users', user.uid), {
+                email: email.toLowerCase(),
+                username: username,
+                createdAt: new Date()
+            });
+
+            await sendEmailVerification(user);
             navigate('/verify-email');
         } catch (err) {
             if (err.code === 'auth/email-already-in-use') {
@@ -53,6 +96,7 @@ function SignUp() {
             } else if (err.code === 'auth/weak-password') {
                 setError('Passordet er for svakt. Velg et sterkere passord.');
             } else {
+                console.error('Registration error:', err);
                 setError('Kunne ikke opprette konto. Prøv igjen.');
             }
         }
@@ -74,6 +118,11 @@ function SignUp() {
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
                         <input type="email" required placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)}
+                               className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
+                    </div>
+                    <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                        <input type="text" required placeholder="Brukernavn (minst 3 tegn)" value={username} onChange={(e) => setUsername(e.target.value)}
                                className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                     </div>
                     <div className="relative">
