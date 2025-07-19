@@ -26,9 +26,20 @@ function StaffCard({ staffMember, areStarsHidden }) {
         visible: { opacity: 1, y: 0 },
     };
 
-    const handleShiftsSave = async (numShifts) => {
+    const handleShiftsSave = async (numShifts, isReset = false) => {
         const staffRef = doc(db, 'staff', staffMember.id);
-        await updateDoc(staffRef, { shifts: increment(numShifts) });
+
+        if (isReset) {
+            // Set the exact number of shifts (reset operation)
+            await updateDoc(staffRef, { shifts: numShifts });
+        } else if (numShifts < 0) {
+            // Handle deletion - decrease shift count
+            await updateDoc(staffRef, { shifts: increment(numShifts) });
+        } else {
+            // Add to existing shifts (normal operation)
+            await updateDoc(staffRef, { shifts: increment(numShifts) });
+        }
+
         setCalendarOpen(false);
     };
 
@@ -139,7 +150,12 @@ function StaffCard({ staffMember, areStarsHidden }) {
 
             <AddSaleModal isOpen={isSaleModalOpen} onClose={() => setSaleModalOpen(false)} staffId={staffMember.id} staffName={staffMember.name} />
             <StaffHistoryModal isOpen={isHistoryModalOpen} onClose={() => setHistoryModalOpen(false)} staffMember={staffMember} />
-            <ShiftCalendarModal isOpen={isCalendarOpen} onClose={() => setCalendarOpen(false)} onSave={handleShiftsSave}/>
+            <ShiftCalendarModal
+                isOpen={isCalendarOpen}
+                onClose={() => setCalendarOpen(false)}
+                onSave={handleShiftsSave}
+                staffMember={staffMember}
+            />
             <DeleteConfirmationModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setDeleteModalOpen(false)}

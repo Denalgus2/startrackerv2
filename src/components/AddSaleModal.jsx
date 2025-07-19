@@ -1,17 +1,33 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { doc, updateDoc, collection, addDoc, serverTimestamp, increment, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, serverTimestamp, increment, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
 import { X, Star, FileText, ShoppingBag, Tag } from 'lucide-react';
 
 function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
+    const [forsikringAmount, setForsikringAmount] = useState('');
     const [existingSales, setExistingSales] = useState([]);
+
+    // Calculate forsikring category based on amount
+    const getForsikringService = (amount) => {
+        const numAmount = parseFloat(amount);
+        if (numAmount < 100) return 'Mindre enn 100kr x3';
+        if (numAmount >= 100 && numAmount <= 299) return '100-299kr x2';
+        if (numAmount >= 300 && numAmount <= 499) return '300-499kr';
+        if (numAmount >= 500 && numAmount <= 999) return '500-999kr';
+        if (numAmount >= 1000 && numAmount <= 1499) return '1000-1499kr';
+        if (numAmount >= 1500) return '1500kr+';
+        return null;
+    };
 
     useEffect(() => {
         if (isOpen && staffId) {
             setFormData({ bilag: '', category: '', service: '' });
+            setForsikringAmount('');
+            // Clear existing sales data first
+            setExistingSales([]);
 
             // Fetch existing sales for this staff member (simplified query)
             const salesQuery = query(
@@ -20,7 +36,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                 // Removed orderBy to avoid index requirement
             );
             const unsub = onSnapshot(salesQuery, (snapshot) => {
-                const salesData = snapshot.docs.map(doc => doc.data());
+                const salesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 // Sort in JavaScript instead of Firestore
                 salesData.sort((a, b) => {
                     if (!a.timestamp || !b.timestamp) return 0;
@@ -29,8 +45,11 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                 setExistingSales(salesData);
             });
             return () => unsub();
+        } else if (!isOpen) {
+            // Clear data when modal closes
+            setExistingSales([]);
         }
-    }, [isOpen, staffId]);
+    }, [isOpen, staffId, staffName]);
 
     // Calculate multiplier progress for selected service
     const getMultiplierProgress = () => {
@@ -74,21 +93,50 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const { bilag, category, service } = formData;
+        let { bilag, category, service } = formData;
+
+        // For forsikring, determine service from amount
+        if (category === 'Forsikring') {
+            if (!forsikringAmount || parseFloat(forsikringAmount) <= 0) {
+                alert('Vennligst skriv inn et gyldig forsikringsbeløp');
+                return;
+            }
+            service = getForsikringService(forsikringAmount);
+        }
+
         if (!staffId || !bilag || !category || !service) return;
 
-        const stars = serviceCategories[category][service];
+        // Calculate stars using the same logic as the preview
+        let starsToAdd = 0;
+        const multiplierInfo = getMultiplierProgress();
+        if (multiplierInfo) {
+            starsToAdd = multiplierInfo.starsEarned;
+        } else {
+            // Fallback to original logic if no multiplier info
+            starsToAdd = serviceCategories[category][service];
+        }
+
         const staffRef = doc(db, 'staff', staffId);
 
-        await updateDoc(staffRef, { stars: increment(stars) });
+        // Only update stars if there are stars to add
+        if (starsToAdd > 0) {
+            await updateDoc(staffRef, { stars: increment(starsToAdd) });
+        }
 
         await addDoc(collection(db, 'sales'), {
             staffId,
             staffName,
-            ...formData,
-            stars,
-            timestamp: serverTimestamp()
+            bilag,
+            category,
+            service,
+            stars: starsToAdd, // Use calculated stars instead of raw service value
+            timestamp: serverTimestamp(),
+            // Add forsikring amount if applicable
+            ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
         });
+
+        setFormData({ bilag: '', category: '', service: '' });
+        setForsikringAmount('');
         onClose();
     };
 
@@ -136,14 +184,41 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                 {/* Kategori */}
                                 <div className="relative">
                                     <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                    <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value, service: ''})} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
+                                    <select required value={formData.category} onChange={e => {
+                                        setFormData({...formData, category: e.target.value, service: ''});
+                                        setForsikringAmount('');
+                                    }} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
                                         <option value="">Velg kategori...</option>
                                         {Object.keys(serviceCategories).filter(cat => cat !== 'Kundeklubb').map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </select>
                                 </div>
 
-                                {/* Tjeneste */}
-                                {formData.category && (
+                                {/* Conditional: Forsikring Amount OR Service Selection */}
+                                {formData.category === 'Forsikring' ? (
+                                    <div className="space-y-3">
+                                        <div className="relative">
+                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                            <input
+                                                type="number" required
+                                                value={forsikringAmount}
+                                                onChange={e => setForsikringAmount(e.target.value)}
+                                                placeholder="Forsikringsbeløp (kr)"
+                                                min="0"
+                                                step="1"
+                                                className="w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
+                                            />
+                                        </div>
+                                        {/* Preview for forsikring */}
+                                        {forsikringAmount && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                <p className="text-sm text-blue-800">
+                                                    <strong>{forsikringAmount}kr</strong> forsikring → kategoriseres som:
+                                                    <strong className="ml-1">{getForsikringService(forsikringAmount)}</strong>
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : formData.category && (
                                     <div className="relative">
                                         <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                                         <select required value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
@@ -206,3 +281,4 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 }
 
 export default AddSaleModal;
+

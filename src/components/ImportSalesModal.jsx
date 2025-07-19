@@ -18,7 +18,9 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
         if (numAmount < 100) return 'Mindre enn 100kr x3';
         if (numAmount >= 100 && numAmount <= 299) return '100-299kr x2';
         if (numAmount >= 300 && numAmount <= 499) return '300-499kr';
-        if (numAmount >= 500) return '500kr+';
+        if (numAmount >= 500 && numAmount <= 999) return '500-999kr';
+        if (numAmount >= 1000 && numAmount <= 1499) return '1000-1499kr';
+        if (numAmount >= 1500) return '1500kr+';
         return null;
     };
 
@@ -378,4 +380,3 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
 }
 
 export default ImportSalesModal;
-

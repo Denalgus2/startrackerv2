@@ -3,7 +3,9 @@ export const serviceCategories = {
         'Mindre enn 100kr x3': 1,
         '100-299kr x2': 1,
         '300-499kr': 1,
-        '500kr+': 2,
+        '500-999kr': 2,
+        '1000-1499kr': 3,
+        '1500kr+': 4,
     },
     'AVS/Support': {
         'MOBOFUSM': 1,

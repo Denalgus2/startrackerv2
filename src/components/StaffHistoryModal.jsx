@@ -11,6 +11,43 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({ bilag: '', category: '', service: '' });
 
+    // Calculate multiplier progress for a specific sale
+    const getMultiplierProgressForSale = (targetSale) => {
+        const service = targetSale.service;
+
+        // Check if service has multiplier
+        let multiplier = 1;
+        if (service.includes(' x2')) multiplier = 2;
+        else if (service.includes(' x3')) multiplier = 3;
+
+        if (multiplier > 1) {
+            // Count sales of same type that occurred before or at the same time as this sale
+            const sameSales = sales.filter(sale =>
+                sale.category === targetSale.category &&
+                sale.service === targetSale.service &&
+                sale.timestamp && targetSale.timestamp &&
+                sale.timestamp.toMillis() <= targetSale.timestamp.toMillis()
+            ).sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+
+            // Find position of this sale in the chronological order
+            const salePosition = sameSales.findIndex(sale => sale.id === targetSale.id) + 1;
+
+            return {
+                position: salePosition,
+                needed: multiplier,
+                isMultiplier: true,
+                starsAwarded: targetSale.stars || 0
+            };
+        }
+
+        return {
+            position: 1,
+            needed: 1,
+            isMultiplier: false,
+            starsAwarded: targetSale.stars || 0
+        };
+    };
+
     useEffect(() => {
         if (!isOpen) return;
         setLoading(true);
@@ -211,7 +248,27 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
                                                             <div>
                                                                 <div className="text-xs text-gray-500 mb-1">Stjerner</div>
                                                                 <div className="flex items-center gap-1 text-[#009A44] font-bold">
-                                                                    {sale.stars} <Star size={14} />
+                                                                    {(() => {
+                                                                        const progress = getMultiplierProgressForSale(sale);
+                                                                        if (progress.isMultiplier) {
+                                                                            return (
+                                                                                <div className="flex flex-col">
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        {progress.starsAwarded} <Star size={14} />
+                                                                                    </div>
+                                                                                    <div className="text-xs text-gray-600 font-normal">
+                                                                                        {progress.position}/{progress.needed}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        } else {
+                                                                            return (
+                                                                                <>
+                                                                                    {progress.starsAwarded} <Star size={14} />
+                                                                                </>
+                                                                            );
+                                                                        }
+                                                                    })()}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -233,6 +290,24 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
                                                         </div>
                                                     </div>
                                                 )}
+                                                <div className="mt-2 text-xs text-gray-500">
+                                                    {sale.timestamp?.toDate().toLocaleString('no-NO')}
+                                                </div>
+                                                <div className="mt-1 text-sm">
+                                                    {getMultiplierProgressForSale(sale).isMultiplier && (
+                                                        <div>
+                                                            <span className="font-semibold text-gray-800">
+                                                                {getMultiplierProgressForSale(sale).position}
+                                                            </span> /
+                                                            <span className="font-semibold text-gray-800">
+                                                                {getMultiplierProgressForSale(sale).needed}
+                                                            </span> stjerner for x
+                                                            <span className="font-bold text-[#009A44]">
+                                                                {sale.service.includes(' x2') ? '2' : '3'}
+                                                            </span> bonus!
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
