@@ -80,9 +80,13 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
             // Delete the sale record
             await deleteDoc(doc(db, 'sales', sale.id));
 
-            // Subtract stars from staff total
+            // Get current staff data to calculate new star total safely
             const staffRef = doc(db, 'staff', staffMember.id);
-            await updateDoc(staffRef, { stars: increment(-sale.stars) });
+            const currentStars = staffMember.stars || 0;
+            const newStars = Math.max(0, currentStars - sale.stars); // Ensure never below 0
+
+            // Update stars to the calculated value instead of using increment
+            await updateDoc(staffRef, { stars: newStars });
         } catch (error) {
             alert('Feil ved sletting: ' + error.message);
         }

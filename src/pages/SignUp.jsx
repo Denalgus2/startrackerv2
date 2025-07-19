@@ -47,8 +47,12 @@ function SignUp() {
         }
 
         try {
-            // Check if username is already taken
-            const usernameRef = doc(db, 'usernames', username.toLowerCase());
+            // Convert email and username to lowercase for consistency
+            const emailLower = email.toLowerCase();
+            const usernameLower = username.toLowerCase();
+
+            // Check if username is already taken (search with lowercase)
+            const usernameRef = doc(db, 'usernames', usernameLower);
             const usernameSnap = await getDoc(usernameRef);
 
             if (usernameSnap.exists()) {
@@ -56,8 +60,8 @@ function SignUp() {
                 return;
             }
 
-            // Check if email is whitelisted
-            const whitelistRef = doc(db, 'whitelist', email.toLowerCase());
+            // Check if email is whitelisted (check with lowercase)
+            const whitelistRef = doc(db, 'whitelist', emailLower);
             const docSnap = await getDoc(whitelistRef);
 
             if (!docSnap.exists()) {
@@ -65,26 +69,26 @@ function SignUp() {
                 return;
             }
 
-            // Create user if whitelisted and username is available
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            // Create user if whitelisted and username is available (use lowercase email)
+            const userCredential = await createUserWithEmailAndPassword(auth, emailLower, password);
             const user = userCredential.user;
 
-            // Update the user profile with the username
+            // Update the user profile with the username (original case for display)
             await updateProfile(user, {
                 displayName: username
             });
 
-            // Store username mapping in Firestore
+            // Store username mapping in Firestore (both in lowercase)
             await setDoc(usernameRef, {
-                email: email.toLowerCase(),
+                email: emailLower,
                 uid: user.uid,
                 createdAt: new Date()
             });
 
-            // Store user data in users collection
+            // Store user data in users collection (lowercase for storage)
             await setDoc(doc(db, 'users', user.uid), {
-                email: email.toLowerCase(),
-                username: username,
+                email: emailLower,
+                username: usernameLower,
                 createdAt: new Date()
             });
 

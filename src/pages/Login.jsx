@@ -22,11 +22,11 @@ function Login() {
         setError('');
 
         try {
-            let emailToUse = emailOrUsername;
+            let emailToUse = emailOrUsername.toLowerCase(); // Convert to lowercase
 
             // Check if input looks like a username (no @ symbol)
             if (!emailOrUsername.includes('@')) {
-                // Look up the email associated with this username
+                // Look up the email associated with this username (search with lowercase)
                 const usernameRef = doc(db, 'usernames', emailOrUsername.toLowerCase());
                 const usernameSnap = await getDoc(usernameRef);
 
