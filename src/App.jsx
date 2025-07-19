@@ -23,8 +23,11 @@ function VerifiedRoute({ children }) {
 }
 
 function App() {
+    // Set basename for GitHub Pages deployment
+    const basename = import.meta.env.PROD ? '/startrackerv2' : '';
+
     return (
-        <Router>
+        <Router basename={basename}>
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<SignUp />} />
