@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Percent, CheckSquare, Calendar } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc, increment } from "firebase/firestore";
 import { db } from '../firebase';
 
 function WeeklyReviewModal({ isOpen, onClose, staffList }) {
@@ -80,7 +80,111 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Prepare the weekly review data
+            // Calculate and award stars for each staff member
+            for (const [staffId, data] of Object.entries(weeklyData)) {
+                let starsToAward = 0;
+                const staffMember = staffList.find(s => s.id === staffId);
+
+                if (!staffMember) continue;
+
+                // Calculate Kundeklubb stars
+                if (data.kundeklubb) {
+                    const percentage = parseInt(data.kundeklubb);
+                    if (percentage >= 100) starsToAward += 4;
+                    else if (percentage >= 80) starsToAward += 3;
+                    else if (percentage >= 60) starsToAward += 2;
+                    else if (percentage >= 40) starsToAward += 1;
+                }
+
+                // Calculate Kunnskap Sjekkliste stars
+                if (data.kunnskapSjekkliste) {
+                    starsToAward += 3; // Kunnskap Sjekkliste gives 3 stars
+                }
+
+                // Calculate Todolist stars
+                if (data.todolist === 'fylt-ut-1-uke') {
+                    starsToAward += 1; // Fylt ut 1 uke gives 1 star
+                } else if (data.todolist === 'alt-ja-1-uke') {
+                    starsToAward += 2; // Alt JA 1 uke gives 2 stars
+                }
+
+                // Update staff member's star count if they earned stars
+                if (starsToAward > 0) {
+                    const staffRef = doc(db, 'staff', staffId);
+                    await updateDoc(staffRef, { stars: increment(starsToAward) });
+
+                    // Create sales records for tracking
+                    const salesPromises = [];
+
+                    // Add kundeklubb sale if applicable
+                    if (data.kundeklubb) {
+                        const percentage = parseInt(data.kundeklubb);
+                        let serviceType = '';
+                        if (percentage >= 100) serviceType = '100%';
+                        else if (percentage >= 80) serviceType = '80%';
+                        else if (percentage >= 60) serviceType = '60%';
+                        else if (percentage >= 40) serviceType = '40%';
+
+                        if (serviceType) {
+                            salesPromises.push(addDoc(collection(db, 'sales'), {
+                                staffId,
+                                staffName: staffMember.name,
+                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNDEKLUBB-${percentage}%`,
+                                category: 'Kundeklubb',
+                                service: serviceType,
+                                stars: percentage >= 100 ? 4 : percentage >= 80 ? 3 : percentage >= 60 ? 2 : 1,
+                                timestamp: serverTimestamp(),
+                                weeklyReview: true,
+                                reviewWeek: selectedWeek.weekNumber,
+                                reviewYear: selectedWeek.year
+                            }));
+                        }
+                    }
+
+                    // Add kunnskap sjekkliste sale if applicable
+                    if (data.kunnskapSjekkliste) {
+                        salesPromises.push(addDoc(collection(db, 'sales'), {
+                            staffId,
+                            staffName: staffMember.name,
+                            bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNNSKAP-SJEKKLISTE`,
+                            category: 'Annet',
+                            service: 'Kunnskap Sjekkliste',
+                            stars: 3,
+                            timestamp: serverTimestamp(),
+                            weeklyReview: true,
+                            reviewWeek: selectedWeek.weekNumber,
+                            reviewYear: selectedWeek.year
+                        }));
+                    }
+
+                    // Add todolist sale if applicable
+                    if (data.todolist) {
+                        const serviceType = data.todolist === 'fylt-ut-1-uke'
+                            ? 'Todolist - Fylt ut 1 uke'
+                            : 'Todolist - Alt JA 1 uke';
+                        const stars = data.todolist === 'fylt-ut-1-uke' ? 1 : 2;
+                        const todoDescription = data.todolist === 'fylt-ut-1-uke' ? 'FYLT-UT' : 'ALT-JA';
+
+                        salesPromises.push(addDoc(collection(db, 'sales'), {
+                            staffId,
+                            staffName: staffMember.name,
+                            bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-TODOLIST-${todoDescription}`,
+                            category: 'Annet',
+                            service: serviceType,
+                            stars: stars,
+                            timestamp: serverTimestamp(),
+                            weeklyReview: true,
+                            reviewWeek: selectedWeek.weekNumber,
+                            reviewYear: selectedWeek.year
+                        }));
+                    }
+
+                    // Execute all sales record creation
+                    await Promise.all(salesPromises);
+                }
+            }
+
+            // Prepare the weekly review data for records
             const reviewData = {
                 weekNumber: selectedWeek.weekNumber,
                 year: selectedWeek.year,
@@ -95,7 +199,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
             // Save to Firestore
             await addDoc(collection(db, 'weeklyReviews'), reviewData);
 
-            alert(`Ukentlig gjennomgang for uke ${selectedWeek.weekNumber} er lagret!`);
+            alert(`Ukentlig gjennomgang for uke ${selectedWeek.weekNumber} er lagret og stjerner er tildelt!`);
             setWeeklyData({});
             onClose();
         } catch (error) {
