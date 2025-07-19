@@ -9,14 +9,21 @@ export default function DeleteConfirmationModal({ isOpen, onClose, onConfirm, st
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+                    onClick={(e) => {
+                        // Close modal if clicking on backdrop (but not during deletion)
+                        if (e.target === e.currentTarget && !isDeleting) {
+                            onClose();
+                        }
+                    }}
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="bg-surface rounded-xl border-4 border-red-500 shadow-lg max-w-md w-full p-6"
+                        className="bg-surface rounded-xl border-4 border-red-500 shadow-2xl max-w-md w-full p-6 relative"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between mb-4">
