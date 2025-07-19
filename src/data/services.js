@@ -28,10 +28,11 @@ export const serviceCategories = {
         'Returgreen': 1,
     },
     'Kundeklubb': {
-        '40%': 1,
-        '60%': 2,
-        '80%': 3,
-        '100%': 4,
+        '20%': 1,
+        '40%': 2,
+        '60%': 3,
+        '80%': 4,
+        '100%': 5,
     },
     'Annet': {
         'Kunnskap Sjekkliste': 3,
