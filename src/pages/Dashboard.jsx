@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion } from 'framer-motion';
-import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck, Trophy } from 'lucide-react';
 
 import StaffCard from '../components/StaffCard';
 import AddStaffModal from '../components/AddStaffModal';
 import ImportSalesModal from '../components/ImportSalesModal';
 import WeeklyReviewModal from '../components/WeeklyReviewModal';
+import LeaderboardModal from '../components/LeaderboardModal';
 
 function Dashboard() {
     const [staff, setStaff] = useState([]);
@@ -15,6 +16,7 @@ function Dashboard() {
     const [isStaffModalOpen, setStaffModalOpen] = useState(false);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+    const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
     const [areStarsHidden, setAreStarsHidden] = useState(false);
 
     useEffect(() => {
@@ -46,6 +48,9 @@ function Dashboard() {
                 <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={() => setAreStarsHidden(!areStarsHidden)} className="p-2 rounded-lg bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
                         {areStarsHidden ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                    <button onClick={() => setLeaderboardOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-surface border-2 border-yellow-400 text-yellow-600 hover:bg-yellow-50 transition-colors">
+                        <Trophy size={16} /><span>Leaderboard</span>
                     </button>
                     <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
                         <Upload size={16} /><span>Importer Salg</span>
@@ -79,6 +84,7 @@ function Dashboard() {
             <AddStaffModal isOpen={isStaffModalOpen} onClose={() => setStaffModalOpen(false)} />
             <ImportSalesModal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} staffList={staff} />
             <WeeklyReviewModal isOpen={isReviewModalOpen} onClose={() => setReviewModalOpen(false)} staffList={staff} />
+            <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
         </div>
     );
 }

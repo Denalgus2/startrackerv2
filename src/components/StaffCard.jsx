@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Plus, List, Calendar, Trash2 } from 'lucide-react';
+import { User, Star, Plus, List, Calendar, Trash2, Edit, Plane } from 'lucide-react';
 import AddSaleModal from './AddSaleModal';
 import StaffHistoryModal from './StaffHistoryModal';
 import ShiftCalendarModal from './ShiftCalendarModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import ManualStarModal from './ManualStarModal';
+import ProfileStatsModal from './ProfileStatsModal';
+import FerieModal from './FerieModal';
 import { doc, updateDoc, increment, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -13,6 +16,9 @@ function StaffCard({ staffMember, areStarsHidden }) {
     const [isHistoryModalOpen, setHistoryModalOpen] = useState(false);
     const [isCalendarOpen, setCalendarOpen] = useState(false);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [isManualStarModalOpen, setManualStarModalOpen] = useState(false);
+    const [isProfileStatsOpen, setProfileStatsOpen] = useState(false);
+    const [isFerieModalOpen, setFerieModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const cardVariants = {
@@ -51,12 +57,19 @@ function StaffCard({ staffMember, areStarsHidden }) {
         }
     };
 
+    // Calculate stars per shift
+    const starsPerShift = (staffMember.shifts && staffMember.shifts > 0)
+        ? ((staffMember.stars || 0) / staffMember.shifts).toFixed(2)
+        : '0.00';
+
     return (
         <>
             <motion.div variants={cardVariants} className="bg-surface rounded-xl border-2 border-[#009A44] shadow-sm p-5 flex flex-col justify-between h-full">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 cursor-pointer hover:bg-background/50 rounded-lg p-2 -m-2 transition-colors"
+                             onClick={() => setProfileStatsOpen(true)}
+                             title="Klikk for detaljert statistikk">
                             <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center text-primary">
                                 <User size={28}/>
                             </div>
@@ -68,6 +81,20 @@ function StaffCard({ staffMember, areStarsHidden }) {
                         <div className="flex gap-1">
                             <button onClick={() => setCalendarOpen(true)} className="p-2 rounded-lg hover:bg-background text-on-surface-secondary">
                                 <Calendar size={20}/>
+                            </button>
+                            <button
+                                onClick={() => setFerieModalOpen(true)}
+                                className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
+                                title="Registrer ferie"
+                            >
+                                <Plane size={20}/>
+                            </button>
+                            <button
+                                onClick={() => setManualStarModalOpen(true)}
+                                className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 transition-colors"
+                                title="Manuell stjerne-registrering"
+                            >
+                                <Edit size={20}/>
                             </button>
                             <button
                                 onClick={() => setDeleteModalOpen(true)}
@@ -83,9 +110,18 @@ function StaffCard({ staffMember, areStarsHidden }) {
                         {areStarsHidden ? (
                             <span className="font-semibold text-2xl text-gray-400">•••</span>
                         ) : (
-                            <span className="font-bold text-4xl text-on-surface">{staffMember.stars || 0}</span>
+                            <div className="flex items-center justify-center gap-8">
+                                <div className="text-center">
+                                    <span className="font-bold text-3xl text-on-surface">{staffMember.stars || 0}</span>
+                                    <p className="text-xs text-on-surface-secondary">Total</p>
+                                </div>
+                                <div className="text-center">
+                                    <span className="font-bold text-3xl text-on-surface">{starsPerShift}</span>
+                                    <p className="text-xs text-on-surface-secondary">Per vakt</p>
+                                </div>
+                            </div>
                         )}
-                        <p className="text-sm text-on-surface-secondary">Stjerner</p>
+                        <p className="text-sm text-on-surface-secondary mt-2">Stjerner</p>
                     </div>
                 </div>
 
@@ -110,6 +146,23 @@ function StaffCard({ staffMember, areStarsHidden }) {
                 onConfirm={handleDeleteStaff}
                 staffName={staffMember.name}
                 isDeleting={isDeleting}
+            />
+            <ManualStarModal
+                isOpen={isManualStarModalOpen}
+                onClose={() => setManualStarModalOpen(false)}
+                staffId={staffMember.id}
+                staffName={staffMember.name}
+            />
+            <ProfileStatsModal
+                isOpen={isProfileStatsOpen}
+                onClose={() => setProfileStatsOpen(false)}
+                staffMember={staffMember}
+            />
+            <FerieModal
+                isOpen={isFerieModalOpen}
+                onClose={() => setFerieModalOpen(false)}
+                staffId={staffMember.id}
+                staffName={staffMember.name}
             />
         </>
     );
