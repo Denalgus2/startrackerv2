@@ -87,8 +87,10 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
                                 kundeklubbBreakdown['80%'] * 80 + kundeklubbBreakdown['100%'] * 100) /
                                (Object.values(kundeklubbBreakdown).reduce((a, b) => a + b, 0) || 1);
 
-        const todolistEfficiency = kundeklubbBreakdown['Todolist - Alt JA 1 uke'] /
-                                  (annetBreakdown['Todolist - Fylt ut 1 uke'] || 1);
+        // Fix todolist efficiency calculation - both services are in annetBreakdown
+        const todolistPerfectWeeks = annetBreakdown['Todolist - Alt JA 1 uke'] || 0;
+        const todolistTotalWeeks = (annetBreakdown['Todolist - Fylt ut 1 uke'] || 0) + todolistPerfectWeeks;
+        const todolistEfficiency = todolistTotalWeeks > 0 ? todolistPerfectWeeks / todolistTotalWeeks : 0;
 
         return {
             totalSales: regularSales.length,
@@ -276,7 +278,7 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
                                                     </div>
                                                 </div>
                                                 <div className="text-xs text-purple-600 mt-1">
-                                                    {stats.annetBreakdown['Todolist - Alt JA 1 uke']}/{stats.annetBreakdown['Todolist - Fylt ut 1 uke']} perfekte uker
+                                                    {stats.annetBreakdown['Todolist - Alt JA 1 uke']}/{(stats.annetBreakdown['Todolist - Fylt ut 1 uke'] || 0) + (stats.annetBreakdown['Todolist - Alt JA 1 uke'] || 0)} perfekte uker
                                                 </div>
                                             </div>
                                         </div>
