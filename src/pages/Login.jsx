@@ -6,7 +6,6 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
-// Component for the Elkjøp banner/logo
 const ElkjopBanner = () => (
     <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Elkjop_logo_blue.png" alt="Elkjøp Banner" className="mx-auto mb-4 w-48 h-auto" />
 );
@@ -22,12 +21,12 @@ function Login() {
         setError('');
 
         try {
-            let emailToUse = emailOrUsername.toLowerCase(); // Convert to lowercase
+            let emailToUse = emailOrUsername;
 
-            // Check if input looks like a username (no @ symbol)
+            // --- Check if input is a username (does not contain '@') ---
             if (!emailOrUsername.includes('@')) {
-                // Look up the email associated with this username (search with lowercase)
-                const usernameRef = doc(db, 'usernames', emailOrUsername.toLowerCase());
+                const usernameLower = emailOrUsername.toLowerCase();
+                const usernameRef = doc(db, 'usernames', usernameLower);
                 const usernameSnap = await getDoc(usernameRef);
 
                 if (!usernameSnap.exists()) {
@@ -35,7 +34,18 @@ function Login() {
                     return;
                 }
 
-                emailToUse = usernameSnap.data().email;
+                // Get the UID from the username mapping
+                const { uid } = usernameSnap.data();
+
+                // Get the user's email from their main user document
+                const userRef = doc(db, 'users', uid);
+                const userSnap = await getDoc(userRef);
+
+                if (!userSnap.exists()) {
+                    setError('Fant ikke tilknyttet brukerkonto.');
+                    return;
+                }
+                emailToUse = userSnap.data().email;
             }
 
             await signInWithEmailAndPassword(auth, emailToUse, password);
@@ -57,15 +67,12 @@ function Login() {
                 className="w-full max-w-md bg-surface rounded-xl shadow-lg border-4 overflow-hidden"
                 style={{ borderColor: '#009A44' }}
             >
-                {/* Green accent border at the top */}
                 <div className="h-2 bg-primary"></div>
-
                 <div className="p-8 space-y-6">
                     <div className="text-center">
                         <ElkjopBanner />
                         <h2 className="mt-6 text-2xl font-bold text-on-surface">Logg inn</h2>
                     </div>
-
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         <div className="relative">
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
@@ -77,9 +84,7 @@ function Login() {
                             <input type="password" required placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)}
                                    className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                         </div>
-
                         {error && <p className="text-danger text-sm text-center">{error}</p>}
-
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} type="submit"
                                        className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
                             Logg inn

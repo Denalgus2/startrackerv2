@@ -1,28 +1,75 @@
+import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { motion } from 'framer-motion';
 import { MailCheck } from 'lucide-react';
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 function VerifyEmail() {
     const { currentUser } = useAuth();
     const navigate = useNavigate();
+    const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+    // Use a ref to ensure the profile creation only runs once
+    const profileCreatedRef = useRef(false);
 
     useEffect(() => {
+        if (!currentUser) return;
+
+        // If the user is already verified when they land here, proceed immediately.
+        if (currentUser.emailVerified) {
+            handleVerificationSuccess();
+            return;
+        }
+
         const interval = setInterval(async () => {
-            await currentUser?.reload?.();
-            if (currentUser?.emailVerified) {
-                navigate('/dashboard');
+            await currentUser.reload();
+            if (currentUser.emailVerified) {
+                clearInterval(interval);
+                handleVerificationSuccess();
             }
-        }, 2000);
+        }, 3000); // Check every 3 seconds
+
         return () => clearInterval(interval);
-    }, [currentUser, navigate]);
+    }, [currentUser]);
+
+    const handleVerificationSuccess = async () => {
+        if (profileCreatedRef.current) return;
+        profileCreatedRef.current = true;
+        setIsCreatingProfile(true);
+
+        try {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const docSnap = await getDoc(userDocRef);
+
+            if (!docSnap.exists()) {
+                await setDoc(userDocRef, {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    displayName: currentUser.displayName,
+                    role: 'pending',
+                    createdAt: new Date(),
+                });
+            }
+
+            // Navigate to the next step after profile is created.
+            navigate('/pending-approval');
+
+        } catch (error) {
+            console.error("Error creating user profile in Firestore:", error);
+            alert("En feil oppstod under opprettelse av din profil. Vennligst kontakt en administrator.");
+        }
+    };
 
     const handleResend = async () => {
         if (currentUser) {
-            await sendEmailVerification(currentUser);
-            alert("Ny bekreftelses-e-post er sendt!");
+            try {
+                await sendEmailVerification(currentUser);
+                alert("Ny bekreftelses-e-post er sendt!");
+            } catch (error) {
+                alert("Feil ved sending av e-post. Prøv igjen om litt.");
+            }
         }
     };
 
@@ -34,29 +81,27 @@ function VerifyEmail() {
             >
                 <MailCheck className="mx-auto h-16 w-16 text-primary" />
                 <h2 className="mt-6 text-3xl font-bold text-on-surface">Bekreft din e-post</h2>
-                <p className="mt-4 text-on-surface-secondary">
-                    En bekreftelseslenke er sendt til <strong>{currentUser?.email}</strong>.
-                </p>
-                <p className="mt-2 text-on-surface-secondary">
-                    Vennligst sjekk innboksen din og klikk på lenken for å fullføre registreringen. Du kan lukke denne siden etter bekreftelse.
-                </p>
-                <p className="mt-2 text-on-surface-secondary">
-                    Kun personer på Elkjøps whitelist kan registrere seg og motta bekreftelses-e-post.
-                </p>
-                <button
-                    onClick={handleResend}
-                    className="mt-6 text-sm text-primary hover:underline"
-                >
-                    Fikk du ikke e-posten? Send på nytt.
-                </button>
-                <div className="mt-8">
-                    <button
-                        onClick={() => window.history.back()}
-                        className="px-4 py-2 rounded-lg bg-[#009A44] text-white font-semibold hover:bg-green-700 shadow"
-                    >
-                        Tilbake
-                    </button>
-                </div>
+
+                {isCreatingProfile ? (
+                    <p className="mt-4 text-on-surface-secondary">
+                        E-post bekreftet! Oppretter din profil...
+                    </p>
+                ) : (
+                    <>
+                        <p className="mt-4 text-on-surface-secondary">
+                            En bekreftelseslenke er sendt til <strong>{currentUser?.email}</strong>.
+                        </p>
+                        <p className="mt-2 text-on-surface-secondary">
+                            Vennligst sjekk innboksen din og klikk på lenken. Denne siden vil automatisk fortsette når du er bekreftet.
+                        </p>
+                        <button
+                            onClick={handleResend}
+                            className="mt-6 text-sm text-primary hover:underline"
+                        >
+                            Fikk du ikke e-posten? Send på nytt.
+                        </button>
+                    </>
+                )}
             </motion.div>
         </div>
     );

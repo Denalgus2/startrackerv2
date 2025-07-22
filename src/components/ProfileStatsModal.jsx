@@ -45,7 +45,9 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
             'Mindre enn 100kr x3': serviceStats['Mindre enn 100kr x3'] || 0,
             '100-299kr x2': serviceStats['100-299kr x2'] || 0,
             '300-499kr': serviceStats['300-499kr'] || 0,
-            '500kr+': serviceStats['500kr+'] || 0
+            '500-999kr': serviceStats['500-999kr'] || 0,
+            '1000-1499kr': serviceStats['1000-1499kr'] || 0,
+            '1500kr+': serviceStats['1500kr+'] || 0
         };
 
         const avsBreakdown = {
@@ -229,20 +231,25 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
                                             Forsikring
                                         </h3>
                                         <div className="space-y-3">
-                                            {Object.entries(stats.forsikringBreakdown).map(([service, count]) => (
-                                                <div key={service} className="flex justify-between items-center">
-                                                    <span className="text-green-700 text-sm">{service}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-green-500 transition-all duration-500"
-                                                                style={{ width: `${Math.min((count / Math.max(...Object.values(stats.forsikringBreakdown))) * 100, 100)}%` }}
-                                                            />
+                                            {Object.entries(stats.forsikringBreakdown).map(([service, count]) => {
+                                                const maxCount = Math.max(...Object.values(stats.forsikringBreakdown));
+                                                const widthPercentage = maxCount > 0 ? Math.min((count / maxCount) * 100, 100) : 0;
+
+                                                return (
+                                                    <div key={service} className="flex justify-between items-center">
+                                                        <span className="text-green-700 text-sm">{service}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-green-500 transition-all duration-500"
+                                                                    style={{ width: `${widthPercentage}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="font-bold text-green-800 w-8 text-right">{count}</span>
                                                         </div>
-                                                        <span className="font-bold text-green-800 w-8 text-right">{count}</span>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
 

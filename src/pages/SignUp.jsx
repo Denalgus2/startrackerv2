@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { UserPlus, Mail, KeyRound, User } from 'lucide-react';
+import { Mail, KeyRound, User } from 'lucide-react';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const ElkjopBanner = () => (
@@ -16,93 +16,78 @@ function SignUp() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
 
-        // Check if passwords match
+        // --- Validation ---
+        if (!email.toLowerCase().endsWith('@elkjop.no')) {
+            setError('Kun e-postadresser som slutter på @elkjop.no er tillatt.');
+            setLoading(false);
+            return;
+        }
         if (password !== confirmPassword) {
             setError('Passordene stemmer ikke overens.');
+            setLoading(false);
             return;
         }
-
-        // Check password length
         if (password.length < 6) {
             setError('Passordet må være minst 6 tegn langt.');
+            setLoading(false);
             return;
         }
-
-        // Check if username is provided and valid
         if (!username.trim() || username.length < 3) {
             setError('Brukernavn må være minst 3 tegn langt.');
+            setLoading(false);
             return;
         }
-
-        // Check if username contains only valid characters (alphanumeric, underscore, dash)
-        if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-            setError('Brukernavn kan kun inneholde bokstaver, tall, _ og -.');
+        if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+            setError('Brukernavn kan kun inneholde bokstaver, tall, punktum, bindestrek og understrek.');
+            setLoading(false);
             return;
         }
 
         try {
-            // Convert email and username to lowercase for consistency
             const emailLower = email.toLowerCase();
             const usernameLower = username.toLowerCase();
 
-            // Check if username is already taken (search with lowercase)
+            // --- Check if username is already taken ---
             const usernameRef = doc(db, 'usernames', usernameLower);
             const usernameSnap = await getDoc(usernameRef);
-
             if (usernameSnap.exists()) {
                 setError('Dette brukernavnet er allerede tatt.');
+                setLoading(false);
                 return;
             }
 
-            // Check if email is whitelisted (check with lowercase)
-            const whitelistRef = doc(db, 'whitelist', emailLower);
-            const docSnap = await getDoc(whitelistRef);
-
-            if (!docSnap.exists()) {
-                setError("Denne e-postadressen er ikke godkjent for registrering.");
-                return;
-            }
-
-            // Create user if whitelisted and username is available (use lowercase email)
+            // Create user in Auth
             const userCredential = await createUserWithEmailAndPassword(auth, emailLower, password);
             const user = userCredential.user;
 
-            // Update the user profile with the username (original case for display)
-            await updateProfile(user, {
-                displayName: username
-            });
+            // Update Auth profile with the chosen username
+            await updateProfile(user, { displayName: username });
 
-            // Store username mapping in Firestore (both in lowercase)
-            await setDoc(usernameRef, {
-                email: emailLower,
-                uid: user.uid,
-                createdAt: new Date()
-            });
+            // Create a mapping from the lowercase username to the user's UID for easy login lookup
+            await setDoc(usernameRef, { uid: user.uid });
 
-            // Store user data in users collection (lowercase for storage)
-            await setDoc(doc(db, 'users', user.uid), {
-                email: emailLower,
-                username: usernameLower,
-                createdAt: new Date()
-            });
+            // The AuthContext will handle creating the document in the 'users' collection.
 
             await sendEmailVerification(user);
             navigate('/verify-email');
+
         } catch (err) {
             if (err.code === 'auth/email-already-in-use') {
-                setError('Denne e-posten er allerede i bruk.');
-            } else if (err.code === 'auth/weak-password') {
-                setError('Passordet er for svakt. Velg et sterkere passord.');
+                setError('Denne e-posten er allerede registrert.');
             } else {
                 console.error('Registration error:', err);
                 setError('Kunne ikke opprette konto. Prøv igjen.');
             }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -116,17 +101,18 @@ function SignUp() {
                 <div className="text-center">
                     <ElkjopBanner />
                     <h2 className="mt-6 text-3xl font-bold text-on-surface">Opprett Konto</h2>
+                    <p className="text-sm text-on-surface-secondary mt-2">Kontoen må verifiseres og godkjennes av en administrator.</p>
                 </div>
 
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                        <input type="email" required placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)}
+                        <input type="email" required placeholder="E-post (@elkjop.no)" value={email} onChange={(e) => setEmail(e.target.value)}
                                className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                     </div>
                     <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                        <input type="text" required placeholder="Brukernavn (minst 3 tegn)" value={username} onChange={(e) => setUsername(e.target.value)}
+                        <input type="text" required placeholder="Brukernavn" value={username} onChange={(e) => setUsername(e.target.value)}
                                className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                     </div>
                     <div className="relative">
@@ -138,10 +124,8 @@ function SignUp() {
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
                         <input type="password" required placeholder="Gjenta passord" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                                className={`w-full pl-10 pr-3 py-3 bg-background border rounded-lg text-on-surface focus:ring-2 outline-none transition-all ${
-                                   confirmPassword && password !== confirmPassword 
-                                       ? 'border-red-500 focus:ring-red-500' 
-                                       : confirmPassword && password === confirmPassword
-                                       ? 'border-green-500 focus:ring-green-500'
+                                   confirmPassword && password !== confirmPassword
+                                       ? 'border-red-500 focus:ring-red-500'
                                        : 'border-border-color focus:ring-primary'
                                }`}/>
                     </div>
@@ -149,8 +133,9 @@ function SignUp() {
                     {error && <p className="text-danger text-sm text-center">{error}</p>}
 
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} type="submit"
-                                   className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
-                        Registrer deg
+                                   disabled={loading}
+                                   className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150 disabled:opacity-50">
+                        {loading ? 'Registrerer...' : 'Registrer deg'}
                     </motion.button>
                 </form>
                 <p className="text-center text-sm text-on-surface-secondary">
