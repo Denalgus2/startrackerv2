@@ -1,14 +1,35 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, query, where, getDocs, updateDoc, writeBatch, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { MailPlus, Trash2, ShieldAlert } from 'lucide-react';
+import { MailPlus, Trash2, ShieldAlert, RefreshCw, AlertCircle } from 'lucide-react';
+import { serviceCategories } from '../data/services';
 
 function Admin() {
     const { currentUser } = useAuth();
     const [whitelist, setWhitelist] = useState([]);
     const [newEmail, setNewEmail] = useState('');
     const [loading, setLoading] = useState(true);
+    const [correctionInProgress, setCorrectionInProgress] = useState(false);
+    const [correctionResults, setCorrectionResults] = useState(null);
+
+    useEffect(() => {
+        // Only set up listener if user is admin
+        if (currentUser?.email === 'denis.ale.gusev@gmail.com') {
+            const unsub = onSnapshot(collection(db, 'whitelist'), (snapshot) => {
+                setWhitelist(snapshot.docs.map(doc => doc.id));
+                setLoading(false);
+            }, (error) => {
+                console.error('Firestore permission error:', error);
+                setLoading(false);
+                // Set empty whitelist if permission denied
+                setWhitelist([]);
+            });
+            return () => unsub();
+        } else {
+            setLoading(false);
+        }
+    }, [currentUser]);
 
     // Hardcoded check for the admin user
     if (currentUser?.email !== 'denis.ale.gusev@gmail.com') {
@@ -20,19 +41,6 @@ function Admin() {
             </div>
         );
     }
-
-    useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'whitelist'), (snapshot) => {
-            setWhitelist(snapshot.docs.map(doc => doc.id));
-            setLoading(false);
-        }, (error) => {
-            console.error('Firestore permission error:', error);
-            setLoading(false);
-            // Set empty whitelist if permission denied
-            setWhitelist([]);
-        });
-        return () => unsub();
-    }, []);
 
     const handleAddEmail = async (e) => {
         e.preventDefault();
@@ -50,10 +58,183 @@ function Admin() {
         }
     };
 
-    return (
-        <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-on-surface mb-6">Admin: E-post Whitelist</h2>
+    const findAndFixKundelubbEntries = async () => {
+        setCorrectionInProgress(true);
+        setCorrectionResults(null);
 
+        try {
+            // Query all Kundeklubb sales
+            const salesQuery = query(
+                collection(db, 'sales'),
+                where('category', '==', 'Kundeklubb')
+            );
+
+            const salesSnapshot = await getDocs(salesQuery);
+            const incorrectEntries = [];
+            const staffUpdates = {};
+
+            // Check each Kundeklubb entry
+            salesSnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                const service = data.service;
+                const currentStars = data.stars;
+                const correctStars = serviceCategories['Kundeklubb'][service];
+
+                if (currentStars !== correctStars) {
+                    const starDifference = correctStars - currentStars;
+                    incorrectEntries.push({
+                        id: doc.id,
+                        staffId: data.staffId,
+                        staffName: data.staffName,
+                        service: service,
+                        currentStars: currentStars,
+                        correctStars: correctStars,
+                        difference: starDifference,
+                        data: data
+                    });
+
+                    // Track staff updates
+                    if (!staffUpdates[data.staffId]) {
+                        staffUpdates[data.staffId] = {
+                            name: data.staffName,
+                            totalDifference: 0
+                        };
+                    }
+                    staffUpdates[data.staffId].totalDifference += starDifference;
+                }
+            });
+
+            if (incorrectEntries.length === 0) {
+                setCorrectionResults({
+                    success: true,
+                    message: 'Ingen feil funnet! Alle Kundeklubb-oppføringer har riktige stjerneverdier.',
+                    correctedEntries: 0,
+                    staffAffected: 0
+                });
+                setCorrectionInProgress(false);
+                return;
+            }
+
+            // Create batch for updates
+            const batch = writeBatch(db);
+
+            // Update each incorrect sales entry
+            incorrectEntries.forEach(entry => {
+                const salesRef = doc(db, 'sales', entry.id);
+                batch.update(salesRef, { stars: entry.correctStars });
+            });
+
+            // Update staff star totals
+            Object.entries(staffUpdates).forEach(([staffId, update]) => {
+                if (update.totalDifference !== 0) {
+                    const staffRef = doc(db, 'staff', staffId);
+                    batch.update(staffRef, {
+                        stars: increment(update.totalDifference)
+                    });
+                }
+            });
+
+            // Execute batch
+            await batch.commit();
+
+            setCorrectionResults({
+                success: true,
+                message: 'Kundeklubb-oppføringer er rettet!',
+                correctedEntries: incorrectEntries.length,
+                staffAffected: Object.keys(staffUpdates).length,
+                details: incorrectEntries,
+                staffUpdates: staffUpdates
+            });
+
+        } catch (error) {
+            console.error('Error correcting Kundeklubb entries:', error);
+            setCorrectionResults({
+                success: false,
+                message: 'Feil under retting: ' + error.message,
+                correctedEntries: 0,
+                staffAffected: 0
+            });
+        }
+
+        setCorrectionInProgress(false);
+    };
+
+    const handleLogout = () => {
+        // Implement logout functionality
+    };
+
+    return (
+        <div className="max-w-6xl mx-auto space-y-8">
+            <h2 className="text-3xl font-bold text-on-surface mb-6">Admin Panel</h2>
+
+            {/* Kundeklubb Correction Tool */}
+            <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+                    <RefreshCw size={20} />
+                    Rett Kundeklubb Stjerneverdier
+                </h3>
+                <p className="text-sm text-on-surface-secondary mb-4">
+                    Dette verktøyet finner og retter alle Kundeklubb-oppføringer som har feil stjerneverdier
+                    (f.eks. 60% = 2 stjerner i stedet for 3 stjerner).
+                </p>
+
+                <div className="flex gap-3 mb-4">
+                    <button
+                        onClick={findAndFixKundelubbEntries}
+                        disabled={correctionInProgress}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus disabled:opacity-50"
+                    >
+                        {correctionInProgress ? (
+                            <>
+                                <RefreshCw size={16} className="animate-spin" />
+                                Retter...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw size={16} />
+                                Finn og Rett Feil
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                {correctionResults && (
+                    <div className={`p-4 rounded-lg ${correctionResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                            {correctionResults.success ? (
+                                <div className="text-green-600">✅</div>
+                            ) : (
+                                <AlertCircle size={20} className="text-red-600" />
+                            )}
+                            <span className={`font-semibold ${correctionResults.success ? 'text-green-800' : 'text-red-800'}`}>
+                                {correctionResults.message}
+                            </span>
+                        </div>
+
+                        {correctionResults.success && correctionResults.correctedEntries > 0 && (
+                            <div className="text-sm text-green-700 mt-2">
+                                <p>📊 {correctionResults.correctedEntries} oppføringer rettet</p>
+                                <p>👥 {correctionResults.staffAffected} ansatte påvirket</p>
+
+                                {correctionResults.staffUpdates && (
+                                    <div className="mt-3">
+                                        <p className="font-medium">Stjerne-endringer per ansatt:</p>
+                                        <div className="mt-1 space-y-1">
+                                            {Object.entries(correctionResults.staffUpdates).map(([staffId, update]) => (
+                                                <div key={staffId} className="text-xs">
+                                                    • {update.name}: {update.totalDifference > 0 ? '+' : ''}{update.totalDifference} stjerner
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Email Whitelist Section */}
             <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-on-surface mb-4">Legg til godkjent e-post</h3>
                 <form onSubmit={handleAddEmail} className="flex gap-2">
