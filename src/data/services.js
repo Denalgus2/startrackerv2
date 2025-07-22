@@ -35,8 +35,8 @@ export const serviceCategories = {
         '100%': 5,
     },
     'Annet': {
-        'Kunnskap Sjekkliste': 3,
+        'Kunnskap Sjekkliste': 1,
         'Todolist - Fylt ut 1 uke': 1,
-        'Todolist - Alt JA 1 uke': 2
+        'Todolist - Alt JA 1 uke': 2,
     }
 };
