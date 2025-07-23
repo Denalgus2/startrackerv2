@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Star, Plus, List, Calendar, Trash2, Edit, Plane } from 'lucide-react';
+import { User, Star, List, Calendar, Trash2, Edit, Plane, Send } from 'lucide-react'; // Added 'Send' icon
 import AddSaleModal from './AddSaleModal';
 import StaffHistoryModal from './StaffHistoryModal';
 import ShiftCalendarModal from './ShiftCalendarModal';
@@ -30,34 +30,31 @@ function StaffCard({ staffMember, areStarsHidden }) {
         const staffRef = doc(db, 'staff', staffMember.id);
 
         if (isReset) {
-            // Set the exact number of shifts (reset operation)
             await updateDoc(staffRef, { shifts: numShifts });
-        } else if (numShifts < 0) {
-            // Handle deletion - decrease shift count
-            await updateDoc(staffRef, { shifts: increment(numShifts) });
         } else {
-            // Add to existing shifts (normal operation)
             await updateDoc(staffRef, { shifts: increment(numShifts) });
         }
-
         setCalendarOpen(false);
     };
 
     const handleDeleteStaff = async () => {
         setIsDeleting(true);
         try {
-            // Delete all sales records for this staff member
+            // This is a simplified delete. For a full implementation, you'd also delete the user from Auth
+            // which requires a Cloud Function. Here we just delete Firestore data.
+
+            // Delete sales records for this staff member
             const salesQuery = query(collection(db, 'sales'), where('staffId', '==', staffMember.id));
             const salesSnapshot = await getDocs(salesQuery);
-
-            // Delete each sales record
-            const deletePromises = salesSnapshot.docs.map(saleDoc =>
-                deleteDoc(doc(db, 'sales', saleDoc.id))
-            );
+            const deletePromises = salesSnapshot.docs.map(saleDoc => deleteDoc(doc(db, 'sales', saleDoc.id)));
             await Promise.all(deletePromises);
 
             // Delete the staff member document
             await deleteDoc(doc(db, 'staff', staffMember.id));
+
+            // Optionally, delete from the 'users' collection too
+            const userRef = doc(db, 'users', staffMember.uid);
+            await deleteDoc(userRef);
 
             setDeleteModalOpen(false);
         } catch (error) {
@@ -68,7 +65,6 @@ function StaffCard({ staffMember, areStarsHidden }) {
         }
     };
 
-    // Calculate stars per shift
     const starsPerShift = (staffMember.shifts && staffMember.shifts > 0)
         ? ((staffMember.stars || 0) / staffMember.shifts).toFixed(2)
         : '0.00';
@@ -142,8 +138,8 @@ function StaffCard({ staffMember, areStarsHidden }) {
                         <span>Historikk</span>
                     </button>
                     <button onClick={() => setSaleModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold">
-                        <Plus size={16} />
-                        <span>Legg til salg</span>
+                        <Send size={16} />
+                        <span>Send inn bilag</span>
                     </button>
                 </div>
             </motion.div>

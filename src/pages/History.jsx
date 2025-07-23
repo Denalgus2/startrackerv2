@@ -1,29 +1,61 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import GlobalHistory from '../components/GlobalHistory';
 import StaffHistory from '../components/StaffHistory';
 import { AnimatePresence, motion } from 'framer-motion';
 
 function History() {
+    const { currentUser, loading: authLoading } = useAuth();
     const [sales, setSales] = useState([]);
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('global');
 
     useEffect(() => {
-        const salesQuery = query(collection(db, 'sales'), orderBy('timestamp', 'desc'));
-        const unsubSales = onSnapshot(salesQuery, (snapshot) => {
-            setSales(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        // Don't set up Firestore listeners until auth is ready and user is authenticated
+        if (authLoading || !currentUser) {
             setLoading(false);
-        });
+            return;
+        }
 
-        const unsubStaff = onSnapshot(collection(db, 'staff'), (snapshot) => {
-            setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
+        let unsubSales = null;
+        let unsubStaff = null;
 
-        return () => { unsubSales(); unsubStaff(); };
-    }, []);
+        try {
+            const salesQuery = query(collection(db, 'sales'), orderBy('timestamp', 'desc'));
+            unsubSales = onSnapshot(salesQuery,
+                (snapshot) => {
+                    setSales(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    setLoading(false);
+                },
+                (error) => {
+                    console.error('Error listening to sales:', error);
+                    setSales([]);
+                    setLoading(false);
+                }
+            );
+
+            unsubStaff = onSnapshot(collection(db, 'staff'),
+                (snapshot) => {
+                    setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                },
+                (error) => {
+                    console.error('Error listening to staff:', error);
+                    setStaff([]);
+                }
+            );
+        } catch (error) {
+            console.error('Error setting up History listeners:', error);
+            setLoading(false);
+        }
+
+        return () => {
+            if (unsubSales) unsubSales();
+            if (unsubStaff) unsubStaff();
+        };
+    }, [currentUser, authLoading]);
 
     if (loading) return <div className="text-center p-10">Laster historikk...</div>;
 

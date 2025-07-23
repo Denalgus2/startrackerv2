@@ -114,6 +114,7 @@ function LeaderboardModal({ isOpen, onClose }) {
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
+                        key="loading"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -134,6 +135,7 @@ function LeaderboardModal({ isOpen, onClose }) {
         <AnimatePresence>
             {isOpen && (
                 <motion.div
+                    key="modal"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}

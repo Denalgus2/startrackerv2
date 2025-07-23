@@ -2,34 +2,24 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion } from 'framer-motion';
-import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck, Trophy } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck, Trophy, Send } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 import StaffCard from '../components/StaffCard';
 import AddStaffModal from '../components/AddStaffModal';
 import ImportSalesModal from '../components/ImportSalesModal';
 import WeeklyReviewModal from '../components/WeeklyReviewModal';
 import LeaderboardModal from '../components/LeaderboardModal';
+import StaffLeaderboard from '../components/StaffLeaderboard';
+import AddSaleModal from '../components/AddSaleModal';
 
-function Dashboard() {
-    const [staff, setStaff] = useState([]);
-    const [loading, setLoading] = useState(true);
+// --- Admin & Moderator View (unchanged) ---
+const AdminDashboard = ({ staff }) => {
     const [isStaffModalOpen, setStaffModalOpen] = useState(false);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
     const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
     const [areStarsHidden, setAreStarsHidden] = useState(false);
-
-    useEffect(() => {
-        const staffQuery = query(collection(db, 'staff'));
-        const unsub = onSnapshot(staffQuery, (snapshot) => {
-            const staffData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Sort by name in JavaScript instead of Firestore
-            staffData.sort((a, b) => a.name.localeCompare(b.name));
-            setStaff(staffData);
-            setLoading(false);
-        });
-        return () => unsub();
-    }, []);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -38,8 +28,6 @@ function Dashboard() {
             transition: { staggerChildren: 0.05 },
         },
     };
-
-    if (loading) return <div className="text-center p-10">Laster data...</div>;
 
     return (
         <div className="space-y-6">
@@ -65,18 +53,9 @@ function Dashboard() {
             </header>
 
             <main>
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                >
+                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {staff.map((member) => (
-                        <StaffCard
-                            key={member.id}
-                            staffMember={member}
-                            areStarsHidden={areStarsHidden}
-                        />
+                        <StaffCard key={member.id} staffMember={member} areStarsHidden={areStarsHidden} />
                     ))}
                 </motion.div>
             </main>
@@ -87,6 +66,95 @@ function Dashboard() {
             <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
         </div>
     );
+};
+
+
+// --- Staff View ---
+const StaffDashboard = ({ staff, currentUser }) => {
+    const [isSaleModalOpen, setSaleModalOpen] = useState(false);
+
+    const selfProfile = staff.find(member => member.uid === currentUser.uid);
+
+    return (
+        <div className="space-y-6">
+            <header className="flex flex-wrap justify-between items-center gap-4">
+                <h2 className="text-3xl font-bold text-on-surface">Leaderboard</h2>
+                {selfProfile && (
+                    <button
+                        onClick={() => setSaleModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
+                    >
+                        <Send size={16} /><span>Send inn bilag</span>
+                    </button>
+                )}
+            </header>
+            <main>
+                {/* --- Pass the currentUser prop here --- */}
+                <StaffLeaderboard currentUser={currentUser} />
+            </main>
+            {selfProfile && (
+                <AddSaleModal
+                    isOpen={isSaleModalOpen}
+                    onClose={() => setSaleModalOpen(false)}
+                    staffId={selfProfile.id}
+                    staffName={selfProfile.name}
+                />
+            )}
+        </div>
+    );
+};
+
+
+// --- Main Dashboard Component ---
+function Dashboard() {
+    const { currentUser, userRole, loading: authLoading } = useAuth();
+    const [staff, setStaff] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Don't set up Firestore listeners until auth is ready and user is authenticated
+        if (authLoading || !currentUser) {
+            setLoading(false);
+            return;
+        }
+
+        let unsub = null;
+
+        try {
+            const staffQuery = query(collection(db, 'staff'));
+            unsub = onSnapshot(staffQuery,
+                (snapshot) => {
+                    const staffData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    staffData.sort((a, b) => a.name.localeCompare(b.name));
+                    setStaff(staffData);
+                    setLoading(false);
+                },
+                (error) => {
+                    console.error('Error listening to staff:', error);
+                    setStaff([]);
+                    setLoading(false);
+                }
+            );
+        } catch (error) {
+            console.error('Error setting up Dashboard listeners:', error);
+            setLoading(false);
+        }
+
+        return () => {
+            if (unsub) {
+                unsub();
+            }
+        };
+    }, [currentUser, authLoading]);
+
+    if (loading) return <div className="text-center p-10">Laster data...</div>;
+
+    if (userRole === 'admin' || userRole === 'moderator') {
+        return <AdminDashboard staff={staff} />;
+    }
+
+    return <StaffDashboard staff={staff} currentUser={currentUser} />;
 }
 
 export default Dashboard;
+
