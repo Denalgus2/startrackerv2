@@ -65,8 +65,8 @@ service cloud.firestore {
     match /bilagRequests/{requestId} {
       // Any authenticated user can create a bilag request
       allow create: if request.auth != null;
-      // Only admins and moderators can read and delete bilag requests
-      allow read, delete: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator');
+      // Only admins and moderators can read, update, and delete bilag requests
+      allow read, update, delete: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator');
     }
 
     // --- ANNOUNCEMENTS ---

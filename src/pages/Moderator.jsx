@@ -95,9 +95,6 @@ function Moderator() {
             `Godkjenne bilag ${request.bilag} for ${request.staffName}? Dette vil tildele ${request.stars} stjerner.`,
             async () => {
                 try {
-                    const requestRef = doc(db, 'bilagRequests', request.id);
-                    await updateDoc(requestRef, { status: 'approved' });
-
                     // Add to sales collection
                     await addDoc(collection(db, 'sales'), {
                         staffId: request.staffId,
@@ -115,7 +112,8 @@ function Moderator() {
                     const staffRef = doc(db, 'staff', request.staffId);
                     await updateDoc(staffRef, { stars: increment(request.stars) });
 
-                    // Delete the request
+                    // Delete the request (no need to update status first since we're deleting it)
+                    const requestRef = doc(db, 'bilagRequests', request.id);
                     await deleteDoc(requestRef);
 
                     showSuccess('Bilag godkjent', `Bilag ${request.bilag} er godkjent og ${request.stars} stjerner er tildelt ${request.staffName}.`);
