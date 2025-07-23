@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X, Percent, CheckSquare, Calendar } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, updateDoc, doc, increment } from "firebase/firestore";
 import { db } from '../firebase';
+import { serviceCategories } from '../data/services';
 
 function WeeklyReviewModal({ isOpen, onClose, staffList }) {
     const [weeklyData, setWeeklyData] = useState({});
@@ -101,10 +102,16 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                 // Calculate Kundeklubb stars
                 if (data.kundeklubb) {
                     const percentage = parseInt(data.kundeklubb);
-                    if (percentage >= 100) starsToAward += 4;
-                    else if (percentage >= 80) starsToAward += 3;
-                    else if (percentage >= 60) starsToAward += 2;
-                    else if (percentage >= 40) starsToAward += 1;
+                    let serviceType = '';
+                    if (percentage >= 100) serviceType = '100%';
+                    else if (percentage >= 80) serviceType = '80%';
+                    else if (percentage >= 60) serviceType = '60%';
+                    else if (percentage >= 40) serviceType = '40%';
+                    else if (percentage >= 20) serviceType = '20%';
+
+                    if (serviceType) {
+                        starsToAward += serviceCategories['Kundeklubb'][serviceType];
+                    }
                 }
 
                 // Calculate Kunnskap Sjekkliste stars
@@ -143,7 +150,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                 bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNDEKLUBB-${percentage}%`,
                                 category: 'Kundeklubb',
                                 service: serviceType,
-                                stars: percentage >= 100 ? 4 : percentage >= 80 ? 3 : percentage >= 60 ? 2 : 1,
+                                stars: serviceCategories['Kundeklubb'][serviceType],
                                 timestamp: serverTimestamp(),
                                 weeklyReview: true,
                                 reviewWeek: selectedWeek.weekNumber,
@@ -365,3 +372,4 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
     );
 }
 export default WeeklyReviewModal;
+
