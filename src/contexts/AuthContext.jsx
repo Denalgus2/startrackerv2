@@ -21,23 +21,32 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             setUserRole(null);
 
+            // Clean up previous listener
             if (userRoleListener) {
                 userRoleListener();
+                userRoleListener = null;
             }
 
             if (user) {
                 // When a user is logged in, listen for changes to their role document.
                 const userDocRef = doc(db, 'users', user.uid);
-                userRoleListener = onSnapshot(userDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        setUserRole(docSnap.data().role);
-                    } else {
-                        // If the document doesn't exist, the role is simply null.
-                        // The VerifyEmail page is now responsible for creating it.
+                userRoleListener = onSnapshot(userDocRef,
+                    (docSnap) => {
+                        if (docSnap.exists()) {
+                            setUserRole(docSnap.data().role);
+                        } else {
+                            // If the document doesn't exist, the role is simply null.
+                            // The VerifyEmail page is now responsible for creating it.
+                            setUserRole(null);
+                        }
+                        setLoading(false);
+                    },
+                    (error) => {
+                        console.error('Error listening to user role:', error);
                         setUserRole(null);
+                        setLoading(false);
                     }
-                    setLoading(false);
-                });
+                );
             } else {
                 // User is logged out.
                 setLoading(false);
@@ -45,7 +54,9 @@ export function AuthProvider({ children }) {
         });
 
         return () => {
-            authStateListener();
+            if (authStateListener) {
+                authStateListener();
+            }
             if (userRoleListener) {
                 userRoleListener();
             }
@@ -55,11 +66,12 @@ export function AuthProvider({ children }) {
     const value = {
         currentUser,
         userRole,
+        loading
     };
 
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 }

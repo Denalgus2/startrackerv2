@@ -107,20 +107,45 @@ const StaffDashboard = ({ staff, currentUser }) => {
 
 // --- Main Dashboard Component ---
 function Dashboard() {
-    const { currentUser, userRole } = useAuth();
+    const { currentUser, userRole, loading: authLoading } = useAuth();
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const staffQuery = query(collection(db, 'staff'));
-        const unsub = onSnapshot(staffQuery, (snapshot) => {
-            const staffData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            staffData.sort((a, b) => a.name.localeCompare(b.name));
-            setStaff(staffData);
+        // Don't set up Firestore listeners until auth is ready and user is authenticated
+        if (authLoading || !currentUser) {
             setLoading(false);
-        });
-        return () => unsub();
-    }, []);
+            return;
+        }
+
+        let unsub = null;
+
+        try {
+            const staffQuery = query(collection(db, 'staff'));
+            unsub = onSnapshot(staffQuery,
+                (snapshot) => {
+                    const staffData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    staffData.sort((a, b) => a.name.localeCompare(b.name));
+                    setStaff(staffData);
+                    setLoading(false);
+                },
+                (error) => {
+                    console.error('Error listening to staff:', error);
+                    setStaff([]);
+                    setLoading(false);
+                }
+            );
+        } catch (error) {
+            console.error('Error setting up Dashboard listeners:', error);
+            setLoading(false);
+        }
+
+        return () => {
+            if (unsub) {
+                unsub();
+            }
+        };
+    }, [currentUser, authLoading]);
 
     if (loading) return <div className="text-center p-10">Laster data...</div>;
 
@@ -132,3 +157,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

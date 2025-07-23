@@ -85,11 +85,11 @@ function StaffLeaderboard({ currentUser }) {
     return (
         <>
             <div className="flex justify-center mb-6">
-                <div className="bg-surface rounded-full p-1 flex items-center gap-3 border border-border-color shadow-sm">
+                <div className="bg-gray-100 rounded-full p-1 flex items-center gap-3 border border-gray-200 shadow-sm">
                     <button
                         onClick={() => setShowStarsPerShift(false)}
                         className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
-                            !showStarsPerShift ? 'bg-primary text-white shadow' : 'text-on-surface-secondary hover:bg-background'
+                            !showStarsPerShift ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                         Total Stjerner
@@ -97,7 +97,7 @@ function StaffLeaderboard({ currentUser }) {
                     <button
                         onClick={() => setShowStarsPerShift(true)}
                         className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
-                            showStarsPerShift ? 'bg-primary text-white shadow' : 'text-on-surface-secondary hover:bg-background'
+                            showStarsPerShift ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                         Stjerner per Vakt

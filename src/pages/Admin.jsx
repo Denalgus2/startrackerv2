@@ -4,9 +4,12 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ShieldAlert, UserCheck, UserX, UserPlus, Users, Trash2, Save, Briefcase, Link as LinkIcon } from 'lucide-react';
 import DeleteUserModal from '../components/DeleteUserModal';
+import { useNotification } from '../hooks/useNotification';
+import NotificationModal from '../components/NotificationModal';
 
 function Admin() {
     const { userRole } = useAuth();
+    const { notification, showSuccess, showError, showWarning, showConfirmation, hideNotification } = useNotification();
     const [pendingUsers, setPendingUsers] = useState([]);
     const [approvedUsers, setApprovedUsers] = useState([]);
     const [staffList, setStaffList] = useState([]);
@@ -49,7 +52,7 @@ function Admin() {
 
     const handleApproveUser = async (user, newRole, linkedStaffId, employeeType) => {
         if (!newRole || !employeeType) {
-            alert("Vennligst velg en rolle og ansettelsestype.");
+            showError('Manglende informasjon', 'Vennligst velg en rolle og ansettelsestype.');
             return;
         }
 
@@ -57,56 +60,68 @@ function Admin() {
             ? `Koble ${user.displayName} til den eksisterende profilen og gi rollen '${newRole}'?`
             : `Opprette en ny stabsprofil for ${user.displayName} med rollen '${newRole}'?`;
 
-        if (!window.confirm(confirmationMessage)) return;
+        showConfirmation('Bekreft godkjenning', confirmationMessage, async () => {
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                let staffProfileId = linkedStaffId;
 
-        try {
-            const userRef = doc(db, 'users', user.uid);
-            let staffProfileId = linkedStaffId;
+                if (linkedStaffId) {
+                    const staffRef = doc(db, 'staff', linkedStaffId);
+                    await updateDoc(staffRef, { uid: user.uid });
+                } else {
+                    const newStaffDoc = await addDoc(collection(db, 'staff'), {
+                        name: user.displayName,
+                        stars: 0,
+                        shifts: 0,
+                        uid: user.uid,
+                    });
+                    staffProfileId = newStaffDoc.id;
+                }
 
-            if (linkedStaffId) {
-                const staffRef = doc(db, 'staff', linkedStaffId);
-                await updateDoc(staffRef, { uid: user.uid });
-            } else {
-                const newStaffDoc = await addDoc(collection(db, 'staff'), {
-                    name: user.displayName,
-                    stars: 0,
-                    shifts: 0,
-                    uid: user.uid,
-                });
-                staffProfileId = newStaffDoc.id;
+                await updateDoc(userRef, { role: newRole, staffId: staffProfileId, employeeType: employeeType });
+                showSuccess('Bruker godkjent', `${user.displayName} er nå godkjent med rollen '${newRole}'.`);
+
+            } catch (error) {
+                console.error("Error approving user:", error);
+                showError('Feil ved godkjenning', `Kunne ikke godkjenne bruker: ${error.message}`);
             }
-
-            await updateDoc(userRef, { role: newRole, staffId: staffProfileId, employeeType: employeeType });
-
-        } catch (error) {
-            console.error("Error approving user:", error);
-            alert(`Feil ved godkjenning: ${error.message}`);
-        }
+        });
     };
 
     const handleDeclineUser = async (user) => {
-        if (!window.confirm(`Er du sikker på at du vil avslå og slette forespørselen for ${user.displayName}?`)) return;
-        try {
-            await deleteDoc(doc(db, 'users', user.uid));
-            alert(`Forespørsel for ${user.displayName} er slettet.\n\nBrukeren må også slettes manuelt fra Firebase Authentication.`);
-        } catch (error) {
-            console.error("Error declining user:", error);
-            alert("En feil oppstod under avslag.");
-        }
+        showConfirmation(
+            'Bekreft avslag',
+            `Er du sikker på at du vil avslå og slette forespørselen for ${user.displayName}?`,
+            async () => {
+                try {
+                    await deleteDoc(doc(db, 'users', user.uid));
+                    showSuccess('Forespørsel avslått', `Forespørsel for ${user.displayName} er slettet.\n\nBrukeren må også slettes manuelt fra Firebase Authentication.`);
+                } catch (error) {
+                    console.error("Error declining user:", error);
+                    showError('Feil', 'En feil oppstod under avslag.');
+                }
+            }
+        );
     };
 
     const handleUpdateUser = async (user, newRole, newEmployeeType) => {
         if (!newRole || !newEmployeeType) {
-            alert("Vennligst velg både rolle og ansettelsestype.");
+            showError('Manglende informasjon', 'Vennligst velg både rolle og ansettelsestype.');
             return;
         }
         if (user.email === 'denis.ale.gusev@gmail.com' && newRole !== 'admin') {
-            alert("Kan ikke endre rollen for hovedadministrator.");
+            showError('Ikke tillatt', 'Kan ikke endre rollen for hovedadministrator.');
             return;
         }
-        const userRef = doc(db, 'users', user.id);
-        await updateDoc(userRef, { role: newRole, employeeType: newEmployeeType });
-        alert(`${user.displayName} sine detaljer er oppdatert.`);
+
+        try {
+            const userRef = doc(db, 'users', user.id);
+            await updateDoc(userRef, { role: newRole, employeeType: newEmployeeType });
+            showSuccess('Bruker oppdatert', `${user.displayName} sine detaljer er oppdatert.`);
+        } catch (error) {
+            console.error("Error updating user:", error);
+            showError('Feil', 'Kunne ikke oppdatere brukerdetaljer.');
+        }
     };
 
     const openDeleteModal = (user) => {
@@ -145,125 +160,139 @@ function Admin() {
 
             // For both options, delete the user's profile from the 'users' collection.
             await deleteDoc(doc(db, 'users', user.id));
-            alert(`Brukerdata for ${user.displayName} er slettet fra Firestore.\n\nVIKTIG: Du må nå slette brukeren manuelt fra Firebase Authentication-fanen for å fullføre slettingen.`);
+            showSuccess('Bruker slettet', `Brukerdata for ${user.displayName} er slettet fra Firestore.\n\nVIKTIG: Du må nå slette brukeren manuelt fra Firebase Authentication-fanen for å fullføre slettingen.`);
 
         } catch (error) {
             console.error("Error deleting user data:", error);
-            alert("En feil oppstod under sletting av brukerdata.");
+            showError('Feil', 'En feil oppstod under sletting av brukerdata.');
         }
     };
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-on-surface mb-6">Adminpanel</h2>
+        <>
+            <div className="max-w-4xl mx-auto">
+                <h2 className="text-3xl font-bold text-on-surface mb-6">Adminpanel</h2>
 
-            <div className="mb-8 bg-surface rounded-xl border border-border-color p-6 shadow-sm">
-                <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
-                    <UserPlus size={22}/> Ventende Godkjenninger ({pendingUsers.length})
-                </h3>
-                {loading ? <p>Laster...</p> : (
-                    <ul className="divide-y divide-border-color">
-                        {pendingUsers.length > 0 ? pendingUsers.map(user => (
-                            <li key={user.id} className="flex flex-wrap justify-between items-center py-3 gap-4">
-                                <div>
-                                    <p className="font-semibold text-on-surface">{user.displayName}</p>
-                                    <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                <div className="mb-8 bg-surface rounded-xl border border-border-color p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
+                        <UserPlus size={22}/> Ventende Godkjenninger ({pendingUsers.length})
+                    </h3>
+                    {loading ? <p>Laster...</p> : (
+                        <ul className="divide-y divide-border-color">
+                            {pendingUsers.length > 0 ? pendingUsers.map(user => (
+                                <li key={user.id} className="flex flex-wrap justify-between items-center py-3 gap-4">
+                                    <div>
+                                        <p className="font-semibold text-on-surface">{user.displayName}</p>
+                                        <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        <select id={`staff-link-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm">
+                                            <option value="">Opprett ny profil</option>
+                                            {unlinkedStaff.map(staff => <option key={staff.id} value={staff.id}>Koble til: {staff.name}</option>)}
+                                        </select>
+                                        <select id={`employee-type-approve-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue="">
+                                            <option value="" disabled>Ansettelsestype...</option>
+                                            <option value="fulltid">Fulltid</option>
+                                            <option value="deltid">Deltid</option>
+                                        </select>
+                                        <select id={`role-approve-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue="">
+                                            <option value="" disabled>Velg rolle...</option>
+                                            <option value="staff">Ansatt</option>
+                                            <option value="moderator">Moderator</option>
+                                        </select>
+                                        <button
+                                            onClick={() => {
+                                                const role = document.getElementById(`role-approve-${user.id}`).value;
+                                                const staffId = document.getElementById(`staff-link-${user.id}`).value;
+                                                const empType = document.getElementById(`employee-type-approve-${user.id}`).value;
+                                                handleApproveUser(user, role, staffId, empType);
+                                            }}
+                                            className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                                        >
+                                            <UserCheck size={14}/> Godkjenn
+                                        </button>
+                                        <button onClick={() => handleDeclineUser(user)} className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg">
+                                            <UserX size={14}/> Avslå
+                                        </button>
+                                    </div>
+                                </li>
+                            )) : <p className="text-on-surface-secondary">Ingen nye forespørsler.</p>}
+                        </ul>
+                    )}
+                </div>
+
+                <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
+                        <Users size={22}/> Godkjente Brukere ({approvedUsers.length})
+                    </h3>
+                    {loading ? <p>Laster...</p> : (
+                        <div className="divide-y divide-border-color">
+                            {approvedUsers.map(user => (
+                                <div key={user.id} className="flex flex-wrap justify-between items-center py-4 gap-4">
+                                    <div>
+                                        <p className="font-semibold text-on-surface">{user.displayName}</p>
+                                        <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                                        {user.employeeType && (
+                                            <div className="mt-1 flex items-center gap-1 text-xs font-medium text-white px-2 py-0.5 rounded-full bg-gray-500 w-fit">
+                                                <Briefcase size={12}/>
+                                                <span className="capitalize">{user.employeeType}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <select id={`employee-type-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.employeeType || ""}>
+                                            <option value="" disabled>Ansettelsestype...</option>
+                                            <option value="fulltid">Fulltid</option>
+                                            <option value="deltid">Deltid</option>
+                                        </select>
+                                        <select id={`role-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.role}>
+                                            <option value="staff">Ansatt</option>
+                                            <option value="moderator">Moderator</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                        <button
+                                            onClick={() => {
+                                                const newRole = document.getElementById(`role-update-${user.id}`).value;
+                                                const newEmpType = document.getElementById(`employee-type-update-${user.id}`).value;
+                                                handleUpdateUser(user, newRole, newEmpType);
+                                            }}
+                                            className="p-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg" title="Lagre endringer">
+                                            <Save size={16}/>
+                                        </button>
+                                        <button
+                                            onClick={() => openDeleteModal(user)}
+                                            className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg" title="Slett bruker"
+                                            disabled={user.email === 'denis.ale.gusev@gmail.com'}
+                                        >
+                                            <Trash2 size={16}/>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex flex-wrap gap-2 items-center">
-                                    <select id={`staff-link-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm">
-                                        <option value="">Opprett ny profil</option>
-                                        {unlinkedStaff.map(staff => <option key={staff.id} value={staff.id}>Koble til: {staff.name}</option>)}
-                                    </select>
-                                    <select id={`employee-type-approve-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue="">
-                                        <option value="" disabled>Ansettelsestype...</option>
-                                        <option value="fulltid">Fulltid</option>
-                                        <option value="deltid">Deltid</option>
-                                    </select>
-                                    <select id={`role-approve-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue="">
-                                        <option value="" disabled>Velg rolle...</option>
-                                        <option value="staff">Ansatt</option>
-                                        <option value="moderator">Moderator</option>
-                                    </select>
-                                    <button
-                                        onClick={() => {
-                                            const role = document.getElementById(`role-approve-${user.id}`).value;
-                                            const staffId = document.getElementById(`staff-link-${user.id}`).value;
-                                            const empType = document.getElementById(`employee-type-approve-${user.id}`).value;
-                                            handleApproveUser(user, role, staffId, empType);
-                                        }}
-                                        className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg"
-                                    >
-                                        <UserCheck size={14}/> Godkjenn
-                                    </button>
-                                    <button onClick={() => handleDeclineUser(user)} className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg">
-                                        <UserX size={14}/> Avslå
-                                    </button>
-                                </div>
-                            </li>
-                        )) : <p className="text-on-surface-secondary">Ingen nye forespørsler.</p>}
-                    </ul>
-                )}
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <DeleteUserModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setDeleteModalOpen(false)}
+                    user={userToDelete}
+                    onConfirm={handleDeleteUser}
+                />
             </div>
 
-            <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
-                <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
-                    <Users size={22}/> Godkjente Brukere ({approvedUsers.length})
-                </h3>
-                {loading ? <p>Laster...</p> : (
-                    <div className="divide-y divide-border-color">
-                        {approvedUsers.map(user => (
-                            <div key={user.id} className="flex flex-wrap justify-between items-center py-4 gap-4">
-                                <div>
-                                    <p className="font-semibold text-on-surface">{user.displayName}</p>
-                                    <p className="text-sm text-on-surface-secondary">{user.email}</p>
-                                    {user.employeeType && (
-                                        <div className="mt-1 flex items-center gap-1 text-xs font-medium text-white px-2 py-0.5 rounded-full bg-gray-500 w-fit">
-                                            <Briefcase size={12}/>
-                                            <span className="capitalize">{user.employeeType}</span>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex gap-2 items-center">
-                                    <select id={`employee-type-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.employeeType || ""}>
-                                        <option value="" disabled>Ansettelsestype...</option>
-                                        <option value="fulltid">Fulltid</option>
-                                        <option value="deltid">Deltid</option>
-                                    </select>
-                                    <select id={`role-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.role}>
-                                        <option value="staff">Ansatt</option>
-                                        <option value="moderator">Moderator</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                    <button
-                                        onClick={() => {
-                                            const newRole = document.getElementById(`role-update-${user.id}`).value;
-                                            const newEmpType = document.getElementById(`employee-type-update-${user.id}`).value;
-                                            handleUpdateUser(user, newRole, newEmpType);
-                                        }}
-                                        className="p-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg" title="Lagre endringer">
-                                        <Save size={16}/>
-                                    </button>
-                                    <button
-                                        onClick={() => openDeleteModal(user)}
-                                        className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg" title="Slett bruker"
-                                        disabled={user.email === 'denis.ale.gusev@gmail.com'}
-                                    >
-                                        <Trash2 size={16}/>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <DeleteUserModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setDeleteModalOpen(false)}
-                user={userToDelete}
-                onConfirm={handleDeleteUser}
+            <NotificationModal
+                isOpen={!!notification}
+                onClose={hideNotification}
+                type={notification?.type}
+                title={notification?.title}
+                message={notification?.message}
+                confirmText={notification?.confirmText}
+                showCancel={notification?.showCancel}
+                cancelText={notification?.cancelText}
+                onConfirm={notification?.onConfirm}
             />
-        </div>
+        </>
     );
 }
 

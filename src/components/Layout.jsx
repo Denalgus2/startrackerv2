@@ -1,10 +1,12 @@
-import { LogOut, Home, History as HistoryIcon, Shield, CheckSquare, User } from 'lucide-react';
+import { LogOut, Home, History as HistoryIcon, Shield, CheckSquare, User, Settings, BarChart3 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { auth } from '../firebase';
+import AnnouncementBanner from './AnnouncementBanner';
+import { usePendingBilagCount } from '../hooks/usePendingBilagCount';
 
-const NavLink = ({ to, children, currentPath }) => {
+const NavLink = ({ to, children, currentPath, badge }) => {
     const navigate = useNavigate();
     const isActive = currentPath === to;
 
@@ -22,7 +24,14 @@ const NavLink = ({ to, children, currentPath }) => {
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
             )}
-            <span className="relative z-10 flex items-center gap-2">{children}</span>
+            <span className="relative z-10 flex items-center gap-2">
+                {children}
+                {badge > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                        {badge > 99 ? '99+' : badge}
+                    </span>
+                )}
+            </span>
         </button>
     );
 };
@@ -31,6 +40,7 @@ function Layout({ children }) {
     const { currentUser, userRole } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const pendingBilagCount = usePendingBilagCount();
 
     const handleLogout = async () => {
         await auth.signOut();
@@ -56,11 +66,21 @@ function Layout({ children }) {
                 <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Elkjop_logo_blue.png" alt="Elkjøp Logo" className="h-8 mr-4" />
                 <nav className="flex gap-2">
                     <NavLink to="/dashboard" currentPath={location.pathname}><Home size={18}/> Dashboard</NavLink>
-                    <NavLink to="/history" currentPath={location.pathname}><HistoryIcon size={18}/> Historikk</NavLink>
 
-                    {/* --- CORRECTED LOGIC --- */}
-                    {/* Show the approval link if the user is a moderator OR an admin */}
-                    {(isModerator || isAdmin) && <NavLink to="/moderator" currentPath={location.pathname}><CheckSquare size={18}/> Godkjenning</NavLink>}
+                    {/* Show History only for regular staff */}
+                    {!isModerator && !isAdmin && (
+                        <NavLink to="/history" currentPath={location.pathname}><HistoryIcon size={18}/> Historikk</NavLink>
+                    )}
+
+                    {/* Moderator and Admin links */}
+                    {(isModerator || isAdmin) && (
+                        <>
+                            <NavLink to="/moderator" currentPath={location.pathname} badge={pendingBilagCount}>
+                                <BarChart3 size={18}/> Kontrollpanel
+                            </NavLink>
+                            <NavLink to="/moderator/settings" currentPath={location.pathname}><Settings size={18}/> Innstillinger</NavLink>
+                        </>
+                    )}
 
                     {isAdmin && <NavLink to="/admin" currentPath={location.pathname}><Shield size={18}/> Admin</NavLink>}
                 </nav>
@@ -82,7 +102,13 @@ function Layout({ children }) {
                     </button>
                 </div>
             </header>
-            <main className="container mx-auto px-4 pt-24 pb-12">
+
+            <main className="container mx-auto px-4 pt-6 pb-12">
+                {/* Announcement Banner */}
+                <div className="mb-6">
+                    <AnnouncementBanner />
+                </div>
+
                 {children}
             </main>
         </div>
