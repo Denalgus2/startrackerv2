@@ -5,6 +5,7 @@ import { Mail, KeyRound } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import BiometricLogin from '../components/BiometricLogin';
 
 const ElkjopBanner = () => (
     <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Elkjop_logo_blue.png" alt="Elkjøp Banner" className="mx-auto mb-4 w-48 h-auto" />
@@ -15,6 +16,14 @@ function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
+
+    const handleBiometricSuccess = () => {
+        navigate('/');
+    };
+
+    const handleBiometricError = (errorMessage) => {
+        setError(errorMessage);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -90,6 +99,22 @@ function Login() {
                             Logg inn
                         </motion.button>
                     </form>
+                    
+                    {/* Biometric Login Section */}
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-surface text-gray-500">eller</span>
+                        </div>
+                    </div>
+                    
+                    <BiometricLogin 
+                        onSuccess={handleBiometricSuccess}
+                        onError={handleBiometricError}
+                    />
+                    
                     <p className="text-center text-sm text-on-surface-secondary">
                         Har du ikke en konto? <Link to="/signup" className="font-medium text-primary hover:underline">Registrer deg</Link>
                     </p>

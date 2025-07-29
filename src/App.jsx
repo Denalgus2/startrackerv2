@@ -10,6 +10,7 @@ import VerifyEmail from './pages/VerifyEmail.jsx';
 import Admin from './pages/Admin.jsx';
 import Moderator from './pages/Moderator.jsx';
 import ModeratorSettings from './pages/ModeratorSettings.jsx';
+import UserSettings from './pages/UserSettings.jsx';
 import PendingApproval from './pages/PendingApproval.jsx';
 
 // Protects routes that require a logged-in user (basic)
@@ -80,6 +81,7 @@ function App() {
                     <Route path="/" element={<ApprovedRoute><Layout><Dashboard /></Layout></ApprovedRoute>} />
                     <Route path="/dashboard" element={<ApprovedRoute><Layout><Dashboard /></Layout></ApprovedRoute>} />
                     <Route path="/history" element={<ApprovedRoute><Layout><History /></Layout></ApprovedRoute>} />
+                    <Route path="/settings" element={<ApprovedRoute><Layout><UserSettings /></Layout></ApprovedRoute>} />
 
                     {/* Role-specific routes */}
                     <Route path="/moderator" element={<ModeratorRoute><Layout><Moderator /></Layout></ModeratorRoute>} />

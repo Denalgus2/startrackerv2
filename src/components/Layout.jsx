@@ -43,14 +43,14 @@ const NavLink = ({ to, children, currentPath, badge, onClick }) => {
 };
 
 function Layout({ children }) {
-    const { currentUser, userRole } = useAuth();
+    const { currentUser, userRole, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const pendingBilagCount = usePendingBilagCount();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = async () => {
-        await auth.signOut();
+        await logout();
         navigate('/login');
     };
 
@@ -86,13 +86,15 @@ function Layout({ children }) {
                         <NavLink to="/history" currentPath={location.pathname}><HistoryIcon size={18}/> Historikk</NavLink>
                     )}
 
+                    {/* Settings link for all users */}
+                    <NavLink to="/settings" currentPath={location.pathname}><Settings size={18}/> Innstillinger</NavLink>
+
                     {/* Moderator and Admin links */}
                     {(isModerator || isAdmin) && (
                         <>
                             <NavLink to="/moderator" currentPath={location.pathname} badge={pendingBilagCount}>
                                 <BarChart3 size={18}/> Kontrollpanel
                             </NavLink>
-                            <NavLink to="/moderator/settings" currentPath={location.pathname}><Settings size={18}/> Innstillinger</NavLink>
                         </>
                     )}
 
@@ -160,14 +162,16 @@ function Layout({ children }) {
                                 </NavLink>
                             )}
 
+                            {/* Settings link for all users */}
+                            <NavLink to="/settings" currentPath={location.pathname} onClick={closeMobileMenu}>
+                                <Settings size={18}/> Innstillinger
+                            </NavLink>
+
                             {/* Moderator and Admin links */}
                             {(isModerator || isAdmin) && (
                                 <>
                                     <NavLink to="/moderator" currentPath={location.pathname} badge={pendingBilagCount} onClick={closeMobileMenu}>
                                         <BarChart3 size={18}/> Kontrollpanel
-                                    </NavLink>
-                                    <NavLink to="/moderator/settings" currentPath={location.pathname} onClick={closeMobileMenu}>
-                                        <Settings size={18}/> Innstillinger
                                     </NavLink>
                                 </>
                             )}
