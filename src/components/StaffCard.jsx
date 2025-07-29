@@ -71,59 +71,59 @@ function StaffCard({ staffMember, areStarsHidden }) {
 
     return (
         <>
-            <motion.div variants={cardVariants} className="bg-surface rounded-xl border-2 border-[#009A44] shadow-sm p-5 flex flex-col justify-between h-full">
+            <motion.div variants={cardVariants} className="bg-surface rounded-xl border-2 border-[#009A44] shadow-sm p-4 sm:p-5 flex flex-col justify-between h-full">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-4 cursor-pointer hover:bg-background/50 rounded-lg p-2 -m-2 transition-colors"
+                        <div className="flex items-center gap-3 sm:gap-4 cursor-pointer hover:bg-background/50 rounded-lg p-2 -m-2 transition-colors"
                              onClick={() => setProfileStatsOpen(true)}
                              title="Klikk for detaljert statistikk">
-                            <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center text-primary">
-                                <User size={28}/>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-background flex items-center justify-center text-primary">
+                                <User size={24} className="sm:w-7 sm:h-7"/>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-lg text-on-surface">{staffMember.name}</h3>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-base sm:text-lg text-on-surface truncate">{staffMember.name}</h3>
                                 <p className="text-sm text-on-surface-secondary">{staffMember.shifts || 0} vakter</p>
                             </div>
                         </div>
-                        <div className="flex gap-1">
-                            <button onClick={() => setCalendarOpen(true)} className="p-2 rounded-lg hover:bg-background text-on-surface-secondary">
-                                <Calendar size={20}/>
+                        <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => setCalendarOpen(true)} className="p-1.5 sm:p-2 rounded-lg hover:bg-background text-on-surface-secondary">
+                                <Calendar size={18} className="sm:w-5 sm:h-5"/>
                             </button>
                             <button
                                 onClick={() => setFerieModalOpen(true)}
-                                className="p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
+                                className="p-1.5 sm:p-2 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
                                 title="Registrer ferie"
                             >
-                                <Plane size={20}/>
+                                <Plane size={18} className="sm:w-5 sm:h-5"/>
                             </button>
                             <button
                                 onClick={() => setManualStarModalOpen(true)}
-                                className="p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 transition-colors"
+                                className="p-1.5 sm:p-2 rounded-lg hover:bg-yellow-50 text-yellow-600 hover:text-yellow-700 transition-colors"
                                 title="Manuell stjerne-registrering"
                             >
-                                <Edit size={20}/>
+                                <Edit size={18} className="sm:w-5 sm:h-5"/>
                             </button>
                             <button
                                 onClick={() => setDeleteModalOpen(true)}
-                                className="p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+                                className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
                                 title="Slett ansatt"
                             >
-                                <Trash2 size={20}/>
+                                <Trash2 size={18} className="sm:w-5 sm:h-5"/>
                             </button>
                         </div>
                     </div>
 
-                    <div className="bg-background p-4 rounded-lg text-center">
+                    <div className="bg-background p-3 sm:p-4 rounded-lg text-center">
                         {areStarsHidden ? (
-                            <span className="font-semibold text-2xl text-gray-400">•••</span>
+                            <span className="font-semibold text-xl sm:text-2xl text-gray-400">•••</span>
                         ) : (
-                            <div className="flex items-center justify-center gap-8">
+                            <div className="flex items-center justify-center gap-4 sm:gap-8">
                                 <div className="text-center">
-                                    <span className="font-bold text-3xl text-on-surface">{staffMember.stars || 0}</span>
+                                    <span className="font-bold text-2xl sm:text-3xl text-on-surface">{staffMember.stars || 0}</span>
                                     <p className="text-xs text-on-surface-secondary">Total</p>
                                 </div>
                                 <div className="text-center">
-                                    <span className="font-bold text-3xl text-on-surface">{starsPerShift}</span>
+                                    <span className="font-bold text-2xl sm:text-3xl text-on-surface">{starsPerShift}</span>
                                     <p className="text-xs text-on-surface-secondary">Per vakt</p>
                                 </div>
                             </div>
@@ -133,12 +133,12 @@ function StaffCard({ staffMember, areStarsHidden }) {
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border-color">
-                    <button onClick={() => setHistoryModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-background transition-colors text-on-surface-secondary text-sm">
-                        <List size={16} />
+                    <button onClick={() => setHistoryModalOpen(true)} className="flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2 rounded-lg hover:bg-background transition-colors text-on-surface-secondary text-xs sm:text-sm">
+                        <List size={14} className="sm:w-4 sm:h-4" />
                         <span>Historikk</span>
                     </button>
-                    <button onClick={() => setSaleModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-semibold">
-                        <Send size={16} />
+                    <button onClick={() => setSaleModalOpen(true)} className="flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs sm:text-sm font-semibold">
+                        <Send size={14} className="sm:w-4 sm:h-4" />
                         <span>Send inn bilag</span>
                     </button>
                 </div>

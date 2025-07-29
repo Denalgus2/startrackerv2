@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { X, Star, FileText, ShoppingBag, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -102,6 +102,10 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
                 });
 
+                // Update staff total stars
+                const staffRef = doc(db, 'staff', staffId);
+                await updateDoc(staffRef, { stars: increment(starsToAdd) });
+
                 setFormData({ bilag: '', category: '', service: '' });
                 setForsikringAmount('');
                 onClose();
@@ -143,29 +147,29 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     <motion.div
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
+                        className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-2 sm:p-4"
                     >
                         <motion.div
                             initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                             onClick={(e) => e.stopPropagation()}
-                            className="bg-white rounded-xl w-full max-w-lg border-2 border-[#009A44] shadow-xl flex flex-col max-h-[90vh]"
+                            className="bg-white rounded-xl w-full max-w-sm sm:max-w-lg border-2 border-[#009A44] shadow-xl flex flex-col max-h-[95vh] sm:max-h-[90vh]"
                         >
-                            <header className="flex justify-between items-center p-6 border-b border-gray-200">
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900">
+                            <header className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
                                         {userRole === 'moderator' || userRole === 'admin'
                                             ? 'Registrer Bilag'
                                             : 'Send inn Bilag for Godkjenning'
                                         }
                                     </h3>
-                                    <p className="text-sm text-gray-600">For: <span className="font-semibold text-[#009A44]">{staffName}</span></p>
+                                    <p className="text-sm text-gray-600">For: <span className="font-semibold text-[#009A44] truncate">{staffName}</span></p>
                                 </div>
-                                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 transition-colors"><X size={24}/></button>
+                                <button onClick={onClose} className="text-gray-500 hover:text-gray-700 transition-colors p-1 -m-1 flex-shrink-0"><X size={20} className="sm:w-6 sm:h-6"/></button>
                             </header>
 
                             <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
-                                <div className="p-6 space-y-5 overflow-y-auto">
+                                <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
                                     <div className="relative">
                                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                                         <input
@@ -236,13 +240,13 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                     )}
                                 </div>
 
-                                <footer className="flex justify-between items-center p-6 bg-gray-50 rounded-b-xl border-t border-gray-200 mt-auto">
-                                    <div className="flex items-center gap-2 text-lg font-bold">
+                                <footer className="flex flex-col sm:flex-row justify-between items-center gap-3 p-4 sm:p-6 bg-gray-50 rounded-b-xl border-t border-gray-200 mt-auto">
+                                    <div className="flex items-center gap-2 text-base sm:text-lg font-bold">
                                         <Star className="text-[#009A44]" />
                                         <span className="text-gray-900">{multiplierInfo?.starsEarned || 0}</span>
                                         <span className="text-gray-600 text-sm font-normal">potensielle stjerner</span>
                                     </div>
-                                    <button type="submit" disabled={loading} className="px-6 py-3 bg-[#009A44] text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+                                    <button type="submit" disabled={loading} className="w-full sm:w-auto px-6 py-3 bg-[#009A44] text-white font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
                                         {loading ? 'Sender...' : (userRole === 'moderator' || userRole === 'admin' ? 'Registrer Bilag' : 'Send til Godkjenning')}
                                     </button>
                                 </footer>

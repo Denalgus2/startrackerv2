@@ -117,7 +117,9 @@ function StaffHistoryModal({ isOpen, onClose, staffMember }) {
             // Update staff total stars if they changed
             if (starDifference !== 0) {
                 const staffRef = doc(db, 'staff', staffMember.id);
-                await updateDoc(staffRef, { stars: increment(starDifference) });
+                const currentStaffStars = staffMember.stars || 0;
+                const newTotalStars = Math.max(0, currentStaffStars + starDifference); // Ensure never negative
+                await updateDoc(staffRef, { stars: newTotalStars });
             }
 
             setEditingId(null);

@@ -154,7 +154,10 @@ function Moderator() {
             async () => {
                 try {
                     const staffRef = doc(db, 'staff', staffId);
-                    await updateDoc(staffRef, { stars: increment(adjustment) });
+                    const currentStaff = staff.find(s => s.id === staffId);
+                    const currentStars = currentStaff?.stars || 0;
+                    const newTotalStars = Math.max(0, currentStars + adjustment); // Ensure never negative
+                    await updateDoc(staffRef, { stars: newTotalStars });
 
                     // Log the adjustment
                     await addDoc(collection(db, 'starAdjustments'), {

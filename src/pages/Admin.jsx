@@ -97,7 +97,10 @@ function Admin() {
             <div className="text-center p-10">
                 <ShieldAlert className="mx-auto h-12 w-12 text-danger"/>
                 <h2 className="mt-4 text-2xl font-bold">Ingen tilgang</h2>
-                <p className="mt-2 text-on-surface-secondary">Du har ikke rettigheter til å se denne siden.</p>
+                <p className="mt-2 text-on-surface-secondary">
+                    Du har ikke rettigheter til å se denne siden. 
+                    {userRole ? ` Din rolle: ${userRole}` : ' Rolle ikke lastet.'}
+                </p>
             </div>
         );
     }
@@ -232,6 +235,14 @@ function Admin() {
         setCorrectionInProgress(true);
         setCorrectionResults(null);
         try {
+            // Debug: Log current user role
+            console.log('Current user role:', userRole);
+            console.log('Current user ID:', currentUser?.uid);
+            
+            if (!userRole || (userRole !== 'admin' && userRole !== 'moderator')) {
+                throw new Error(`Insufficient permissions. Current role: ${userRole}. Required: admin or moderator`);
+            }
+
             const salesQuery = query(collection(db, 'sales'), where('category', '==', 'Kundeklubb'));
             const salesSnapshot = await getDocs(salesQuery);
             const incorrectEntries = [];
@@ -266,6 +277,9 @@ function Admin() {
                 return;
             }
 
+            console.log('Found incorrect entries:', incorrectEntries.length);
+            console.log('Staff updates needed:', Object.keys(staffUpdates).length);
+
             const batch = writeBatch(db);
             incorrectEntries.forEach(entry => {
                 const salesRef = doc(db, 'sales', entry.id);
@@ -277,7 +291,39 @@ function Admin() {
                     batch.update(staffRef, { stars: increment(update.totalDifference) });
                 }
             });
-            await batch.commit();
+            
+            console.log('Committing batch with', batch._mutations.length, 'operations');
+            
+            try {
+                await batch.commit();
+            } catch (batchError) {
+                console.error('Batch commit failed, trying individual updates:', batchError);
+                
+                // Fallback: Try individual updates
+                for (const entry of incorrectEntries) {
+                    try {
+                        const salesRef = doc(db, 'sales', entry.id);
+                        await updateDoc(salesRef, { stars: entry.correctStars });
+                        console.log('Updated sale:', entry.id);
+                    } catch (updateError) {
+                        console.error('Failed to update sale:', entry.id, updateError);
+                        throw updateError;
+                    }
+                }
+                
+                for (const [staffId, update] of Object.entries(staffUpdates)) {
+                    if (update.totalDifference !== 0) {
+                        try {
+                            const staffRef = doc(db, 'staff', staffId);
+                            await updateDoc(staffRef, { stars: increment(update.totalDifference) });
+                            console.log('Updated staff:', staffId);
+                        } catch (updateError) {
+                            console.error('Failed to update staff:', staffId, updateError);
+                            throw updateError;
+                        }
+                    }
+                }
+            }
 
             setCorrectionResults({
                 success: true,
@@ -289,7 +335,129 @@ function Admin() {
             });
         } catch (error) {
             console.error('Error correcting Kundeklubb entries:', error);
+            console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                stack: error.stack
+            });
             setCorrectionResults({ success: false, message: 'Feil under retting: ' + error.message });
+        }
+        setCorrectionInProgress(false);
+    };
+
+    const recalculateAllStaffStars = async () => {
+        setCorrectionInProgress(true);
+        setCorrectionResults(null);
+        try {
+            // Get all sales records
+            const salesSnapshot = await getDocs(collection(db, 'sales'));
+            const salesData = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Get all staff members
+            const staffSnapshot = await getDocs(collection(db, 'staff'));
+            const staffData = staffSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const staffCalculations = {};
+            const corrections = [];
+            const negativeStarIssues = [];
+            const problematicSales = [];
+
+            // Calculate correct star totals for each staff member
+            staffData.forEach(staff => {
+                const staffSales = salesData.filter(sale => sale.staffId === staff.id);
+                const calculatedStars = staffSales.reduce((total, sale) => total + (sale.stars || 0), 0);
+                const currentStars = staff.stars || 0;
+                
+                // Check for negative stars in sales records
+                staffSales.forEach(sale => {
+                    if (sale.stars < 0) {
+                        problematicSales.push({
+                            id: sale.id,
+                            staffId: staff.id,
+                            staffName: staff.name,
+                            bilag: sale.bilag,
+                            category: sale.category,
+                            service: sale.service,
+                            stars: sale.stars,
+                            timestamp: sale.timestamp
+                        });
+                    }
+                });
+                
+                if (calculatedStars !== currentStars) {
+                    const hasNegativeStars = currentStars < 0;
+                    const hasNegativeSales = staffSales.some(sale => sale.stars < 0);
+                    
+                    if (hasNegativeStars || hasNegativeSales) {
+                        negativeStarIssues.push({
+                            staffId: staff.id,
+                            staffName: staff.name,
+                            currentStars,
+                            calculatedStars,
+                            negativeSalesCount: staffSales.filter(sale => sale.stars < 0).length,
+                            totalSales: staffSales.length
+                        });
+                    }
+                    
+                    staffCalculations[staff.id] = {
+                        name: staff.name,
+                        currentStars,
+                        calculatedStars,
+                        difference: calculatedStars - currentStars,
+                        hasNegativeStars,
+                        hasNegativeSales
+                    };
+                    corrections.push({
+                        staffId: staff.id,
+                        staffName: staff.name,
+                        currentStars,
+                        calculatedStars,
+                        difference: calculatedStars - currentStars
+                    });
+                }
+            });
+
+            if (corrections.length === 0 && problematicSales.length === 0) {
+                setCorrectionResults({ 
+                    success: true, 
+                    message: 'Ingen stjerne-feil funnet! Alle ansatte har korrekte stjerne-totaler.', 
+                    correctedEntries: 0, 
+                    staffAffected: 0 
+                });
+                setCorrectionInProgress(false);
+                return;
+            }
+
+            // Update all staff members with correct star totals
+            const batch = writeBatch(db);
+            
+            // Fix negative sales records first
+            problematicSales.forEach(sale => {
+                const salesRef = doc(db, 'sales', sale.id);
+                batch.update(salesRef, { stars: 0 }); // Set negative stars to 0
+            });
+            
+            // Update staff totals
+            corrections.forEach(correction => {
+                const staffRef = doc(db, 'staff', correction.staffId);
+                batch.update(staffRef, { stars: Math.max(0, correction.calculatedStars) }); // Ensure no negative totals
+            });
+            
+            await batch.commit();
+
+            setCorrectionResults({
+                success: true,
+                message: `Stjerne-totaler rettet! ${problematicSales.length > 0 ? `${problematicSales.length} negative salg-oppføringer ble også rettet.` : ''}`,
+                correctedEntries: corrections.length,
+                staffAffected: corrections.length,
+                details: corrections,
+                staffUpdates: staffCalculations,
+                negativeStarIssues,
+                problematicSales
+            });
+        } catch (error) {
+            console.error('Error recalculating staff stars:', error);
+            setCorrectionResults({ success: false, message: 'Feil under stjerne-beregning: ' + error.message });
         }
         setCorrectionInProgress(false);
     };
@@ -299,23 +467,23 @@ function Admin() {
 
     return (
         <>
-            <div className="max-w-6xl mx-auto space-y-8">
-                <h2 className="text-3xl font-bold text-on-surface mb-6">Adminpanel</h2>
+            <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
+                <h2 className="text-2xl sm:text-3xl font-bold text-on-surface mb-4 sm:mb-6">Adminpanel</h2>
 
                 {/* Pending Approvals Section */}
-                <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
-                    <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
-                        <UserPlus size={22}/> Ventende Godkjenninger ({pendingUsers.length})
+                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
+                    <h3 className="text-lg sm:text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
+                        <UserPlus size={20} className="sm:w-[22px] sm:h-[22px]"/> Ventende Godkjenninger ({pendingUsers.length})
                     </h3>
                     {loading ? <p>Laster...</p> : (
                         <ul className="divide-y divide-border-color">
                             {pendingUsers.length > 0 ? pendingUsers.map(user => (
-                                <li key={user.id} className="flex flex-wrap justify-between items-center py-3 gap-4">
-                                    <div>
-                                        <p className="font-semibold text-on-surface">{user.displayName}</p>
-                                        <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                                <li key={user.id} className="py-3 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:justify-between sm:items-center sm:gap-4">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-on-surface truncate">{user.displayName}</p>
+                                        <p className="text-sm text-on-surface-secondary truncate">{user.email}</p>
                                     </div>
-                                    <div className="flex flex-wrap gap-2 items-center">
+                                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                                          <select id={`staff-link-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm">
                                              <option value="">Opprett ny profil</option>
                                              {unlinkedStaff.map(staff => <option key={staff.id} value={staff.id}>Koble til: {staff.name}</option>)}
@@ -337,11 +505,11 @@ function Admin() {
                                                  const empType = document.getElementById(`employee-type-approve-${user.id}`).value;
                                                  handleApproveUser(user, role, staffId, empType);
                                              }}
-                                             className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                                             className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg"
                                          >
                                              <UserCheck size={14}/> Godkjenn
                                          </button>
-                                         <button onClick={() => handleDeclineUser(user)} className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg">
+                                         <button onClick={() => handleDeclineUser(user)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg">
                                              <UserX size={14}/> Avslå
                                          </button>
                                      </div>
@@ -352,17 +520,17 @@ function Admin() {
                 </div>
 
                 {/* Approved Users Section */}
-                <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
-                     <h3 className="text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
-                         <Users size={22}/> Godkjente Brukere ({approvedUsers.length})
+                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
+                     <h3 className="text-lg sm:text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
+                         <Users size={20} className="sm:w-[22px] sm:h-[22px]"/> Godkjente Brukere ({approvedUsers.length})
                      </h3>
                      {loading ? <p>Laster...</p> : (
                          <div className="divide-y divide-border-color">
                              {approvedUsers.map(user => (
-                                 <div key={user.id} className="flex flex-wrap justify-between items-center py-4 gap-4">
-                                     <div>
-                                         <p className="font-semibold text-on-surface">{user.displayName}</p>
-                                         <p className="text-sm text-on-surface-secondary">{user.email}</p>
+                                 <div key={user.id} className="py-4 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:justify-between sm:items-center sm:gap-4">
+                                     <div className="min-w-0 flex-1">
+                                         <p className="font-semibold text-on-surface truncate">{user.displayName}</p>
+                                         <p className="text-sm text-on-surface-secondary truncate">{user.email}</p>
                                          {user.employeeType && (
                                              <div className="mt-1 flex items-center gap-1 text-xs font-medium text-white px-2 py-0.5 rounded-full bg-gray-500 w-fit">
                                                  <Briefcase size={12}/>
@@ -370,7 +538,7 @@ function Admin() {
                                              </div>
                                          )}
                                      </div>
-                                     <div className="flex gap-2 items-center">
+                                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                                          <select id={`employee-type-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.employeeType || ""}>
                                              <option value="" disabled>Ansettelsestype...</option>
                                              <option value="fulltid">Fulltid</option>
@@ -404,8 +572,89 @@ function Admin() {
                      )}
                  </div>
 
+                {/* Star Tracking Fix Tool */}
+                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
+                        <RefreshCw size={20} />
+                        Rett Stjerne-tracking
+                    </h3>
+                    <p className="text-sm text-on-surface-secondary mb-4">
+                        Dette verktøyet går gjennom alle bilag-oppføringer og beregner korrekte stjerne-totaler for alle ansatte.
+                    </p>
+                    <button
+                        onClick={recalculateAllStaffStars}
+                        disabled={correctionInProgress}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        {correctionInProgress ? (<><RefreshCw size={16} className="animate-spin" /> Beregner...</>) : (<><RefreshCw size={16} /> Rett Stjerne-tracking</>)}
+                    </button>
+                                         {correctionResults && (
+                         <div className={`mt-4 p-4 rounded-lg ${correctionResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                             <div className="flex items-center gap-2 mb-2">
+                                 {correctionResults.success ? (<div className="text-green-600">✅</div>) : (<AlertCircle size={20} className="text-red-600" />)}
+                                 <span className={`font-semibold ${correctionResults.success ? 'text-green-800' : 'text-red-800'}`}>{correctionResults.message}</span>
+                             </div>
+                             {correctionResults.success && (
+                                 <div className="text-sm text-green-700 mt-2">
+                                     <p>📊 {correctionResults.correctedEntries} ansatte rettet</p>
+                                     <p>👥 {correctionResults.staffAffected} ansatte påvirket</p>
+                                     
+                                     {/* Show negative star issues */}
+                                     {correctionResults.negativeStarIssues && correctionResults.negativeStarIssues.length > 0 && (
+                                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                             <p className="font-medium text-yellow-800 mb-2">⚠️ Negative stjerne-problemer funnet:</p>
+                                             <div className="space-y-1">
+                                                 {correctionResults.negativeStarIssues.map((issue, index) => (
+                                                     <div key={index} className="text-xs text-yellow-700">
+                                                         • {issue.staffName}: {issue.currentStars} stjerner (hadde {issue.negativeSalesCount} negative salg-oppføringer)
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+                                     
+                                     {/* Show problematic sales */}
+                                     {correctionResults.problematicSales && correctionResults.problematicSales.length > 0 && (
+                                         <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                                             <p className="font-medium text-red-800 mb-2">🚨 Negative salg-oppføringer rettet:</p>
+                                             <div className="space-y-1">
+                                                 {correctionResults.problematicSales.slice(0, 5).map((sale, index) => (
+                                                     <div key={index} className="text-xs text-red-700">
+                                                         • {sale.staffName}: {sale.bilag} ({sale.category}) - {sale.stars} → 0 stjerner
+                                                     </div>
+                                                 ))}
+                                                 {correctionResults.problematicSales.length > 5 && (
+                                                     <div className="text-xs text-red-600 mt-1">
+                                                         ... og {correctionResults.problematicSales.length - 5} flere
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     )}
+                                     
+                                     {/* Show regular updates */}
+                                     {correctionResults.staffUpdates && (
+                                         <div className="mt-3">
+                                             <p className="font-medium">Stjerne-endringer per ansatt:</p>
+                                             <div className="mt-1 space-y-1">
+                                                 {Object.entries(correctionResults.staffUpdates).map(([staffId, update]) => (
+                                                     <div key={staffId} className={`text-xs ${update.hasNegativeStars || update.hasNegativeSales ? 'text-red-600 font-medium' : ''}`}>
+                                                         • {update.name}: {update.currentStars} → {update.calculatedStars} ({update.difference > 0 ? '+' : ''}{update.difference} stjerner)
+                                                         {update.hasNegativeStars && ' ⚠️ Hadde negative total'}
+                                                         {update.hasNegativeSales && ' 🚨 Hadde negative salg'}
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+                             )}
+                         </div>
+                     )}
+                </div>
+
                 {/* Kundeklubb Correction Tool */}
-                <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
+                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
                     <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
                         <RefreshCw size={20} />
                         Rett Kundeklubb Stjerneverdier
@@ -413,13 +662,27 @@ function Admin() {
                     <p className="text-sm text-on-surface-secondary mb-4">
                         Dette verktøyet finner og retter alle Kundeklubb-oppføringer som har feil stjerneverdier.
                     </p>
-                    <button
-                        onClick={findAndFixKundelubbEntries}
-                        disabled={correctionInProgress}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus disabled:opacity-50"
-                    >
-                        {correctionInProgress ? (<><RefreshCw size={16} className="animate-spin" /> Retter...</>) : (<><RefreshCw size={16} /> Finn og Rett Feil</>)}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                            onClick={findAndFixKundelubbEntries}
+                            disabled={correctionInProgress}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus disabled:opacity-50"
+                        >
+                            {correctionInProgress ? (<><RefreshCw size={16} className="animate-spin" /> Retter...</>) : (<><RefreshCw size={16} /> Finn og Rett Feil</>)}
+                        </button>
+                        <button
+                            onClick={() => {
+                                console.log('Debug info:');
+                                console.log('User ID:', currentUser?.uid);
+                                console.log('User Role:', userRole);
+                                console.log('User Email:', currentUser?.email);
+                                alert(`Debug Info:\nUser ID: ${currentUser?.uid}\nUser Role: ${userRole}\nUser Email: ${currentUser?.email}`);
+                            }}
+                            className="flex-1 sm:flex-none px-3 py-3 sm:py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300"
+                        >
+                            Debug Info
+                        </button>
+                    </div>
                     {correctionResults && (
                         <div className={`mt-4 p-4 rounded-lg ${correctionResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                             <div className="flex items-center gap-2 mb-2">
@@ -447,17 +710,17 @@ function Admin() {
                 </div>
 
                 {/* Whitelist Section */}
-                <div className="bg-surface rounded-xl border border-border-color p-6 shadow-sm">
+                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
                     <h3 className="text-lg font-semibold text-on-surface mb-4">E-post Whitelist ({whitelist.length})</h3>
-                    <form onSubmit={handleAddEmail} className="flex gap-2 mb-4">
+                    <form onSubmit={handleAddEmail} className="flex flex-col sm:flex-row gap-2 mb-4">
                         <input
                             type="email"
                             value={newEmail}
                             onChange={(e) => setNewEmail(e.target.value)}
                             placeholder="ny.ansatt@elkjop.no"
-                            className="flex-grow p-2 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                            className="flex-grow p-3 sm:p-2 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
                         />
-                        <button type="submit" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus">
+                        <button type="submit" className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus">
                             <MailPlus size={16}/> Legg til
                         </button>
                     </form>

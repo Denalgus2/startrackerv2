@@ -31,29 +31,29 @@ const AdminDashboard = ({ staff }) => {
 
     return (
         <div className="space-y-6">
-            <header className="flex flex-wrap justify-between items-center gap-4">
-                <h2 className="text-3xl font-bold text-on-surface">Ansattoversikt</h2>
-                <div className="flex items-center gap-2 flex-wrap">
+            <header className="space-y-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-on-surface">Ansattoversikt</h2>
+                <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => setAreStarsHidden(!areStarsHidden)} className="p-2 rounded-lg bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
                         {areStarsHidden ? <Eye size={18} /> : <EyeOff size={18} />}
                     </button>
-                    <button onClick={() => setLeaderboardOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-surface border-2 border-yellow-400 text-yellow-600 hover:bg-yellow-50 transition-colors">
-                        <Trophy size={16} /><span>Leaderboard</span>
+                    <button onClick={() => setLeaderboardOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-yellow-400 text-yellow-600 hover:bg-yellow-50 transition-colors">
+                        <Trophy size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Leaderboard</span>
                     </button>
-                    <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
-                        <Upload size={16} /><span>Importer Salg</span>
+                    <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
+                        <Upload size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Importer</span>
                     </button>
-                    <button onClick={() => setReviewModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
-                        <ClipboardCheck size={16} /><span>Ukentlig Gjennomgang</span>
+                    <button onClick={() => setReviewModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
+                        <ClipboardCheck size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Gjennomgang</span>
                     </button>
-                    <button onClick={() => setStaffModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
-                        <UserPlus size={16} /><span>Legg til ansatt</span>
+                    <button onClick={() => setStaffModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
+                        <UserPlus size={14} className="sm:w-4 sm:h-4"/><span>Legg til ansatt</span>
                     </button>
                 </div>
             </header>
 
             <main>
-                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {staff.map((member) => (
                         <StaffCard key={member.id} staffMember={member} areStarsHidden={areStarsHidden} />
                     ))}
@@ -77,12 +77,12 @@ const StaffDashboard = ({ staff, currentUser }) => {
 
     return (
         <div className="space-y-6">
-            <header className="flex flex-wrap justify-between items-center gap-4">
-                <h2 className="text-3xl font-bold text-on-surface">Leaderboard</h2>
+            <header className="space-y-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-on-surface">Leaderboard</h2>
                 {selfProfile && (
                     <button
                         onClick={() => setSaleModalOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
                     >
                         <Send size={16} /><span>Send inn bilag</span>
                     </button>
