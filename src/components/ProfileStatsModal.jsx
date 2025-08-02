@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { X, User, Star, TrendingUp, Calendar, Target, Award, CheckCircle, Users, ShoppingBag } from 'lucide-react';
 
 function ProfileStatsModal({ isOpen, onClose, staffMember }) {
     const [salesData, setSalesData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [konkurranse, setKonkurranse] = useState(null);
+    const [userProgress, setUserProgress] = useState({ points: 0, level: null, claimedRewards: [] });
 
     useEffect(() => {
         if (!isOpen || !staffMember?.id) return;
@@ -23,6 +25,33 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
         });
 
         return () => unsubscribe();
+    }, [isOpen, staffMember?.id]);
+
+    // Fetch active konkurranse and user progress
+    useEffect(() => {
+        if (!isOpen || !staffMember?.id) return;
+        // Fetch active konkurranse
+        const konkurranseQuery = query(collection(db, 'konkurranser'), where('active', '==', true));
+        const unsubK = onSnapshot(konkurranseQuery, (snapshot) => {
+            const konkurranser = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Pick the one that is ongoing or not started
+            const now = new Date();
+            const active = konkurranser.find(k => {
+                const start = k.start ? new Date(k.start) : null;
+                const end = k.end ? new Date(k.end) : null;
+                return start && end && now >= start && now <= end;
+            }) || konkurranser[0];
+            setKonkurranse(active || null);
+        });
+        // Fetch user konkurranse progress
+        let unsubProgress = () => {};
+        if (staffMember?.id) {
+            const progressRef = doc(db, 'users', staffMember.id, 'konkurranseProgress', 'current');
+            unsubProgress = onSnapshot(progressRef, (snap) => {
+                setUserProgress(snap.exists() ? snap.data() : { points: 0, level: null, claimedRewards: [] });
+            });
+        }
+        return () => { unsubK(); unsubProgress(); };
     }, [isOpen, staffMember?.id]);
 
     if (!staffMember) return null;
@@ -111,6 +140,24 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
     };
 
     const stats = calculateDetailedStats();
+
+    // Helper: get current level and next level
+    const getLevelInfo = () => {
+        if (!konkurranse || !konkurranse.levels) return { current: null, next: null };
+        const sorted = [...konkurranse.levels].sort((a, b) => a.pointsRequired - b.pointsRequired);
+        const current = sorted.slice().reverse().find(lvl => userProgress.points >= lvl.pointsRequired) || null;
+        const next = sorted.find(lvl => !current || lvl.pointsRequired > current.pointsRequired) || null;
+        return { current, next };
+    };
+    const { current: currentLevel, next: nextLevel } = getLevelInfo();
+
+    // Claim reward
+    const handleClaimReward = async (reward) => {
+        if (!konkurranse || !staffMember?.id) return;
+        const progressRef = doc(db, 'users', staffMember.id, 'konkurranseProgress', 'current');
+        const newClaimed = [...(userProgress.claimedRewards || []), reward.name];
+        await setDoc(progressRef, { ...userProgress, claimedRewards: newClaimed }, { merge: true });
+    };
 
     if (loading) {
         return (
@@ -372,6 +419,87 @@ function ProfileStatsModal({ isOpen, onClose, staffMember }) {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Competition Info - New Section */}
+                            {konkurranse && (
+                                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                                    <div className="font-bold text-lg mb-1">Konkurranse: {konkurranse.name}</div>
+                                    <div className="text-sm text-gray-700 mb-2">{konkurranse.pointType === 'stars' ? 'Stjerner' : 'Poeng'} | {konkurranse.start && new Date(konkurranse.start).toLocaleString()} - {konkurranse.end && new Date(konkurranse.end).toLocaleString()}</div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="font-semibold">Nivå: {currentLevel ? currentLevel.name : 'Ingen'}</div>
+                                        <div className="text-sm">{userProgress.points} / {nextLevel ? nextLevel.pointsRequired : currentLevel ? currentLevel.pointsRequired : 0} {konkurranse.pointType}</div>
+                                        {nextLevel && (
+                                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                <div className="h-2 bg-green-400" style={{ width: `${Math.min(100, (userProgress.points / nextLevel.pointsRequired) * 100)}%` }}></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Rewards */}
+                                    <div className="mt-3">
+                                        <div className="font-semibold mb-1">Belønninger:</div>
+                                        <ul className="space-y-1">
+                                            {konkurranse.levels && konkurranse.levels.map((lvl, i) => (
+                                                <li key={i} className="flex items-center gap-2">
+                                                    <span className="font-bold">{lvl.name}</span>: {lvl.reward}
+                                                    {lvl.claimable && userProgress.points >= lvl.pointsRequired && !(userProgress.claimedRewards || []).includes(lvl.name) && (
+                                                        <button onClick={() => handleClaimReward(lvl)} className="btn btn-xs btn-success ml-2">Krev belønning</button>
+                                                    )}
+                                                    {lvl.claimable && (userProgress.claimedRewards || []).includes(lvl.name) && (
+                                                        <span className="text-green-600 ml-2">Krevd</span>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* KONKURRANSE NIVÅ OG BELØNNINGER */}
+                            {konkurranse && (
+                                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border border-yellow-200 mt-6">
+                                    <h3 className="text-xl font-bold text-yellow-900 mb-4 flex items-center gap-2">
+                                        <Award size={24} />
+                                        Konkurranse: {konkurranse.name}
+                                    </h3>
+                                    <div className="mb-2 text-sm text-yellow-800">
+                                        {konkurranse.pointType === 'stars' ? 'Stjerner' : 'Poeng'}: <span className="font-bold">{userProgress.points}</span>
+                                    </div>
+                                    {currentLevel && (
+                                        <div className="mb-2">
+                                            <span className="font-semibold">Nåværende nivå:</span> {currentLevel.name} ({currentLevel.pointsRequired} {konkurranse.pointType})
+                                        </div>
+                                    )}
+                                    {nextLevel && (
+                                        <div className="mb-2">
+                                            <span className="font-semibold">Neste nivå:</span> {nextLevel.name} ({nextLevel.pointsRequired} {konkurranse.pointType})
+                                            <span className="ml-2 text-xs text-gray-600">({nextLevel.pointsRequired - userProgress.points} igjen)</span>
+                                        </div>
+                                    )}
+                                    <div className="mt-4">
+                                        <h4 className="font-semibold mb-2">Belønninger</h4>
+                                        <div className="space-y-2">
+                                            {konkurranse.levels && konkurranse.levels.map((lvl, i) => (
+                                                <div key={i} className="flex items-center gap-2 p-2 rounded border border-yellow-300 bg-yellow-50">
+                                                    <span className="font-bold w-32">{lvl.name}</span>
+                                                    <span className="text-xs text-gray-700">{lvl.pointsRequired} {konkurranse.pointType}</span>
+                                                    <span className="text-sm text-yellow-900">{lvl.reward}</span>
+                                                    {lvl.claimable && userProgress.points >= lvl.pointsRequired && !userProgress.claimedRewards?.includes(lvl.name) && (
+                                                        <button className="ml-2 px-2 py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded text-xs font-semibold" onClick={() => handleClaimReward(lvl)}>
+                                                            Krev belønning
+                                                        </button>
+                                                    )}
+                                                    {userProgress.claimedRewards?.includes(lvl.name) && (
+                                                        <span className="ml-2 text-green-700 text-xs flex items-center gap-1"><CheckCircle size={14}/> Krevd</span>
+                                                    )}
+                                                    {lvl.claimable && userProgress.points < lvl.pointsRequired && (
+                                                        <span className="ml-2 text-gray-400 text-xs">Ikke oppnådd</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 </motion.div>

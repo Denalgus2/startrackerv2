@@ -133,6 +133,26 @@ function CompetitionsTab() {
         }
     };
 
+    // Helper to get active konkurranse and its state
+    const now = new Date();
+    const getKonkurranseState = (konk) => {
+        const start = konk.start ? new Date(konk.start) : null;
+        const end = konk.end ? new Date(konk.end) : null;
+        if (!start || !end) return 'ukjent';
+        if (now < start) return 'not_started';
+        if (now >= start && now <= end) return 'ongoing';
+        if (now > end) return 'ended';
+        return 'ukjent';
+    };
+    const getCountdown = (targetDate) => {
+        const diff = targetDate - now;
+        if (diff <= 0) return '00:00:00';
+        const hours = Math.floor(diff / 1000 / 60 / 60);
+        const mins = Math.floor((diff / 1000 / 60) % 60);
+        const secs = Math.floor((diff / 1000) % 60);
+        return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -144,171 +164,66 @@ function CompetitionsTab() {
         );
     }
 
+    // Render competitions with countdowns and type
     return (
-        <>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-6"
-            >
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900">Konkurranser</h2>
-                        <p className="text-gray-600 text-sm">Administrer konkurranser og belønninger for ansatte</p>
-                    </div>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus size={16} />
-                        Ny konkurranse
-                    </button>
+        <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2"><Trophy size={20}/> Konkurranser</h2>
+                <button
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow"
+                    onClick={() => setShowCreateModal(true)}
+                >
+                    <Plus size={16}/> Ny konkurranse
+                </button>
+            </div>
+            {competitions.length === 0 && (
+                <div className="text-center text-gray-500 py-12">
+                    <Trophy size={48} className="mx-auto mb-4 text-gray-300"/>
+                    <p>Ingen konkurranser er opprettet ennå.</p>
                 </div>
-
-                {/* Competition Cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <AnimatePresence>
-                        {competitions.map((competition) => (
-                            <motion.div
-                                key={competition.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
-                            >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
-                                            <Trophy className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">{competition.title}</h3>
-                                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(competition.status)}`}>
-                                                {getStatusText(competition.status)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => toggleCompetitionStatus(competition)}
-                                            className={`p-2 rounded-lg transition-colors ${
-                                                competition.status === 'active' 
-                                                    ? 'text-yellow-600 hover:bg-yellow-100' 
-                                                    : 'text-green-600 hover:bg-green-100'
-                                            }`}
-                                            title={competition.status === 'active' ? 'Pause konkurranse' : 'Start konkurranse'}
-                                        >
-                                            {competition.status === 'active' ? <Pause size={16} /> : <Play size={16} />}
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setEditingCompetition(competition);
-                                                setShowCreateModal(true);
-                                            }}
-                                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                            title="Rediger konkurranse"
-                                        >
-                                            <Edit3 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => deleteCompetition(competition.id, competition.title)}
-                                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                                            title="Slett konkurranse"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className="text-gray-600 text-sm">{competition.description}</p>
-
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                                        <div className="flex items-center gap-1">
-                                            <Calendar size={14} />
-                                            <span>
-                                                {competition.startDate?.toDate().toLocaleDateString('no-NO')} -
-                                                {competition.endDate?.toDate().toLocaleDateString('no-NO')}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Target size={14} />
-                                            <span>{competition.targetServices?.length || 0} tjenester</span>
-                                        </div>
-                                    </div>
-
-                                    {competition.reward && (
-                                        <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                            <Award className="h-4 w-4 text-yellow-600" />
-                                            <span className="text-sm text-yellow-800 font-medium">
-                                                Belønning: {competition.reward}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {competition.targetServices && competition.targetServices.length > 0 && (
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-medium text-gray-700">Inkluderte tjenester:</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {competition.targetServices.slice(0, 3).map((service, index) => (
-                                                    <span key={index} className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                                        {service.category} - {service.service}
-                                                    </span>
-                                                ))}
-                                                {competition.targetServices.length > 3 && (
-                                                    <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                                        +{competition.targetServices.length - 3} flere
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
-
-                {competitions.length === 0 && (
-                    <div className="text-center py-12">
-                        <Trophy size={48} className="mx-auto text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Ingen konkurranser ennå</h3>
-                        <p className="text-gray-600 mb-6">Opprett din første konkurranse for å motivere teamet!</p>
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mx-auto"
-                        >
-                            <Plus size={16} />
-                            Opprett konkurranse
-                        </button>
+            )}
+            {competitions.map((konk) => {
+                const state = getKonkurranseState(konk);
+                const start = konk.start ? new Date(konk.start) : null;
+                const end = konk.end ? new Date(konk.end) : null;
+                let countdownLabel = '';
+                let countdownValue = '';
+                if (state === 'not_started' && start) {
+                    countdownLabel = 'Starter om:';
+                    countdownValue = getCountdown(start);
+                } else if (state === 'ongoing' && end) {
+                    countdownLabel = 'Slutter om:';
+                    countdownValue = getCountdown(end);
+                }
+                return (
+                    <div key={konk.id} className={`border rounded-xl p-4 mb-4 ${getStatusColor(state)}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                                <div className="font-bold text-lg">{konk.name}</div>
+                                <div className="text-sm text-gray-700">{konk.pointType === 'stars' ? 'Stjerner' : 'Poeng'} | {konk.start && new Date(konk.start).toLocaleString()} - {konk.end && new Date(konk.end).toLocaleString()}</div>
+                                <div className="text-xs text-gray-500">Status: {getStatusText(state)}</div>
+                                {countdownLabel && (
+                                    <div className="mt-1 text-xs font-semibold text-blue-700">{countdownLabel} <span className="font-mono">{countdownValue}</span></div>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-1 items-end">
+                                {konk.levels && konk.levels.length > 0 && (
+                                    <div className="text-xs text-gray-700">Nivåer: {konk.levels.length}</div>
+                                )}
+                                {konk.servicePoints && Object.keys(konk.servicePoints).length > 0 && (
+                                    <div className="text-xs text-gray-700">Tjenester: {Object.keys(konk.servicePoints).length}</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                )}
-            </motion.div>
-
-            {/* Create/Edit Competition Modal */}
+                );
+            })}
             <CompetitionModal
                 isOpen={showCreateModal}
-                onClose={() => {
-                    setShowCreateModal(false);
-                    setEditingCompetition(null);
-                }}
-                competition={editingCompetition}
+                onClose={() => setShowCreateModal(false)}
                 serviceCategories={serviceCategories}
             />
-
-            <NotificationModal
-                isOpen={!!notification}
-                onClose={hideNotification}
-                type={notification?.type}
-                title={notification?.title}
-                message={notification?.message}
-                confirmText={notification?.confirmText}
-                showCancel={notification?.showCancel}
-                cancelText={notification?.cancelText}
-                onConfirm={notification?.onConfirm}
-            />
-        </>
+        </div>
     );
 }
 

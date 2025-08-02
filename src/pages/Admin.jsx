@@ -24,10 +24,7 @@ import {
     Users,
     Trash2,
     Save,
-    Briefcase,
-    MailPlus,
-    RefreshCw,
-    AlertCircle
+    MailPlus
 } from 'lucide-react';
 import DeleteUserModal from '../components/DeleteUserModal';
 import { useNotification } from '../hooks/useNotification';
@@ -36,7 +33,7 @@ import { serviceCategories } from '../data/services';
 
 function Admin() {
     const { userRole, currentUser } = useAuth(); // Merged from both
-    const { notification, showSuccess, showError, showWarning, showConfirmation, hideNotification } = useNotification();
+    const { notification, showSuccess, showError, showConfirmation, hideNotification } = useNotification();
 
     // State from gemini-normalstaff
     const [pendingUsers, setPendingUsers] = useState([]);
@@ -44,15 +41,13 @@ function Admin() {
     const [staffList, setStaffList] = useState([]);
     const [userToDelete, setUserToDelete] = useState(null);
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // State from master
     const [whitelist, setWhitelist] = useState([]);
     const [newEmail, setNewEmail] = useState('');
     const [correctionInProgress, setCorrectionInProgress] = useState(false);
     const [correctionResults, setCorrectionResults] = useState(null);
-
-    // Common state
-    const [loading, setLoading] = useState(true);
 
     // Combined useEffect to fetch all necessary data
     useEffect(() => {
@@ -420,8 +415,8 @@ function Admin() {
             if (corrections.length === 0 && problematicSales.length === 0) {
                 setCorrectionResults({ 
                     success: true, 
-                    message: 'Ingen stjerne-feil funnet! Alle ansatte har korrekte stjerne-totaler.', 
-                    correctedEntries: 0, 
+                    message: 'Ingen stjerne-feil funnet! Alle ansatte har korrekte stjernetotaler.',
+                    correctedEntries: 0,
                     staffAffected: 0 
                 });
                 setCorrectionInProgress(false);
@@ -514,251 +509,4 @@ function Admin() {
                                          </button>
                                      </div>
                                 </li>
-                            )) : <p className="text-on-surface-secondary">Ingen nye forespørsler.</p>}
-                        </ul>
-                    )}
-                </div>
-
-                {/* Approved Users Section */}
-                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
-                     <h3 className="text-lg sm:text-xl font-semibold text-on-surface mb-4 flex items-center gap-2">
-                         <Users size={20} className="sm:w-[22px] sm:h-[22px]"/> Godkjente Brukere ({approvedUsers.length})
-                     </h3>
-                     {loading ? <p>Laster...</p> : (
-                         <div className="divide-y divide-border-color">
-                             {approvedUsers.map(user => (
-                                 <div key={user.id} className="py-4 space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:justify-between sm:items-center sm:gap-4">
-                                     <div className="min-w-0 flex-1">
-                                         <p className="font-semibold text-on-surface truncate">{user.displayName}</p>
-                                         <p className="text-sm text-on-surface-secondary truncate">{user.email}</p>
-                                         {user.employeeType && (
-                                             <div className="mt-1 flex items-center gap-1 text-xs font-medium text-white px-2 py-0.5 rounded-full bg-gray-500 w-fit">
-                                                 <Briefcase size={12}/>
-                                                 <span className="capitalize">{user.employeeType}</span>
-                                             </div>
-                                         )}
-                                     </div>
-                                     <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                                         <select id={`employee-type-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.employeeType || ""}>
-                                             <option value="" disabled>Ansettelsestype...</option>
-                                             <option value="fulltid">Fulltid</option>
-                                             <option value="deltid">Deltid</option>
-                                         </select>
-                                         <select id={`role-update-${user.id}`} className="p-2 bg-background border border-border-color rounded-lg text-sm" defaultValue={user.role}>
-                                             <option value="staff">Ansatt</option>
-                                             <option value="moderator">Moderator</option>
-                                             <option value="admin">Admin</option>
-                                         </select>
-                                         <button
-                                             onClick={() => {
-                                                 const newRole = document.getElementById(`role-update-${user.id}`).value;
-                                                 const newEmpType = document.getElementById(`employee-type-update-${user.id}`).value;
-                                                 handleUpdateUser(user, newRole, newEmpType);
-                                             }}
-                                             className="p-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg" title="Lagre endringer">
-                                             <Save size={16}/>
-                                         </button>
-                                         <button
-                                             onClick={() => openDeleteModal(user)}
-                                             className="p-2 text-white bg-red-600 hover:bg-red-700 rounded-lg" title="Slett bruker"
-                                             disabled={user.email === 'denis.ale.gusev@gmail.com'}
-                                         >
-                                             <Trash2 size={16}/>
-                                         </button>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                 </div>
-
-                {/* Star Tracking Fix Tool */}
-                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
-                        <RefreshCw size={20} />
-                        Rett Stjerne-tracking
-                    </h3>
-                    <p className="text-sm text-on-surface-secondary mb-4">
-                        Dette verktøyet går gjennom alle bilag-oppføringer og beregner korrekte stjerne-totaler for alle ansatte.
-                    </p>
-                    <button
-                        onClick={recalculateAllStaffStars}
-                        disabled={correctionInProgress}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {correctionInProgress ? (<><RefreshCw size={16} className="animate-spin" /> Beregner...</>) : (<><RefreshCw size={16} /> Rett Stjerne-tracking</>)}
-                    </button>
-                                         {correctionResults && (
-                         <div className={`mt-4 p-4 rounded-lg ${correctionResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                             <div className="flex items-center gap-2 mb-2">
-                                 {correctionResults.success ? (<div className="text-green-600">✅</div>) : (<AlertCircle size={20} className="text-red-600" />)}
-                                 <span className={`font-semibold ${correctionResults.success ? 'text-green-800' : 'text-red-800'}`}>{correctionResults.message}</span>
-                             </div>
-                             {correctionResults.success && (
-                                 <div className="text-sm text-green-700 mt-2">
-                                     <p>📊 {correctionResults.correctedEntries} ansatte rettet</p>
-                                     <p>👥 {correctionResults.staffAffected} ansatte påvirket</p>
-                                     
-                                     {/* Show negative star issues */}
-                                     {correctionResults.negativeStarIssues && correctionResults.negativeStarIssues.length > 0 && (
-                                         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                             <p className="font-medium text-yellow-800 mb-2">⚠️ Negative stjerne-problemer funnet:</p>
-                                             <div className="space-y-1">
-                                                 {correctionResults.negativeStarIssues.map((issue, index) => (
-                                                     <div key={index} className="text-xs text-yellow-700">
-                                                         • {issue.staffName}: {issue.currentStars} stjerner (hadde {issue.negativeSalesCount} negative salg-oppføringer)
-                                                     </div>
-                                                 ))}
-                                             </div>
-                                         </div>
-                                     )}
-                                     
-                                     {/* Show problematic sales */}
-                                     {correctionResults.problematicSales && correctionResults.problematicSales.length > 0 && (
-                                         <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                                             <p className="font-medium text-red-800 mb-2">🚨 Negative salg-oppføringer rettet:</p>
-                                             <div className="space-y-1">
-                                                 {correctionResults.problematicSales.slice(0, 5).map((sale, index) => (
-                                                     <div key={index} className="text-xs text-red-700">
-                                                         • {sale.staffName}: {sale.bilag} ({sale.category}) - {sale.stars} → 0 stjerner
-                                                     </div>
-                                                 ))}
-                                                 {correctionResults.problematicSales.length > 5 && (
-                                                     <div className="text-xs text-red-600 mt-1">
-                                                         ... og {correctionResults.problematicSales.length - 5} flere
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         </div>
-                                     )}
-                                     
-                                     {/* Show regular updates */}
-                                     {correctionResults.staffUpdates && (
-                                         <div className="mt-3">
-                                             <p className="font-medium">Stjerne-endringer per ansatt:</p>
-                                             <div className="mt-1 space-y-1">
-                                                 {Object.entries(correctionResults.staffUpdates).map(([staffId, update]) => (
-                                                     <div key={staffId} className={`text-xs ${update.hasNegativeStars || update.hasNegativeSales ? 'text-red-600 font-medium' : ''}`}>
-                                                         • {update.name}: {update.currentStars} → {update.calculatedStars} ({update.difference > 0 ? '+' : ''}{update.difference} stjerner)
-                                                         {update.hasNegativeStars && ' ⚠️ Hadde negative total'}
-                                                         {update.hasNegativeSales && ' 🚨 Hadde negative salg'}
-                                                     </div>
-                                                 ))}
-                                             </div>
-                                         </div>
-                                     )}
-                                 </div>
-                             )}
-                         </div>
-                     )}
-                </div>
-
-                {/* Kundeklubb Correction Tool */}
-                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-on-surface mb-4 flex items-center gap-2">
-                        <RefreshCw size={20} />
-                        Rett Kundeklubb Stjerneverdier
-                    </h3>
-                    <p className="text-sm text-on-surface-secondary mb-4">
-                        Dette verktøyet finner og retter alle Kundeklubb-oppføringer som har feil stjerneverdier.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                            onClick={findAndFixKundelubbEntries}
-                            disabled={correctionInProgress}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus disabled:opacity-50"
-                        >
-                            {correctionInProgress ? (<><RefreshCw size={16} className="animate-spin" /> Retter...</>) : (<><RefreshCw size={16} /> Finn og Rett Feil</>)}
-                        </button>
-                        <button
-                            onClick={() => {
-                                console.log('Debug info:');
-                                console.log('User ID:', currentUser?.uid);
-                                console.log('User Role:', userRole);
-                                console.log('User Email:', currentUser?.email);
-                                alert(`Debug Info:\nUser ID: ${currentUser?.uid}\nUser Role: ${userRole}\nUser Email: ${currentUser?.email}`);
-                            }}
-                            className="flex-1 sm:flex-none px-3 py-3 sm:py-2 rounded-lg text-sm font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300"
-                        >
-                            Debug Info
-                        </button>
-                    </div>
-                    {correctionResults && (
-                        <div className={`mt-4 p-4 rounded-lg ${correctionResults.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                                {correctionResults.success ? (<div className="text-green-600">✅</div>) : (<AlertCircle size={20} className="text-red-600" />)}
-                                <span className={`font-semibold ${correctionResults.success ? 'text-green-800' : 'text-red-800'}`}>{correctionResults.message}</span>
-                            </div>
-                            {correctionResults.success && correctionResults.correctedEntries > 0 && (
-                                <div className="text-sm text-green-700 mt-2">
-                                    <p>📊 {correctionResults.correctedEntries} oppføringer rettet</p>
-                                    <p>👥 {correctionResults.staffAffected} ansatte påvirket</p>
-                                    {correctionResults.staffUpdates && (
-                                        <div className="mt-3">
-                                            <p className="font-medium">Stjerne-endringer per ansatt:</p>
-                                            <div className="mt-1 space-y-1">
-                                                {Object.entries(correctionResults.staffUpdates).map(([staffId, update]) => (
-                                                    <div key={staffId} className="text-xs">• {update.name}: {update.totalDifference > 0 ? '+' : ''}{update.totalDifference} stjerner</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Whitelist Section */}
-                <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-on-surface mb-4">E-post Whitelist ({whitelist.length})</h3>
-                    <form onSubmit={handleAddEmail} className="flex flex-col sm:flex-row gap-2 mb-4">
-                        <input
-                            type="email"
-                            value={newEmail}
-                            onChange={(e) => setNewEmail(e.target.value)}
-                            placeholder="ny.ansatt@elkjop.no"
-                            className="flex-grow p-3 sm:p-2 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
-                        />
-                        <button type="submit" className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus">
-                            <MailPlus size={16}/> Legg til
-                        </button>
-                    </form>
-                    {loading ? <p>Laster...</p> : (
-                        <ul className="divide-y divide-border-color">
-                            {whitelist.map(email => (
-                                <li key={email} className="flex justify-between items-center py-2">
-                                    <span className="text-on-surface-secondary">{email}</span>
-                                    <button onClick={() => handleDeleteEmail(email)} className="text-danger p-1 rounded-md hover:bg-danger/10">
-                                        <Trash2 size={18}/>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            </div>
-
-            {/* Modals */}
-            <DeleteUserModal
-                isOpen={isDeleteModalOpen}
-                onClose={() => setDeleteModalOpen(false)}
-                user={userToDelete}
-                onConfirm={handleDeleteUser}
-            />
-            <NotificationModal
-                isOpen={!!notification}
-                onClose={hideNotification}
-                type={notification?.type}
-                title={notification?.title}
-                message={notification?.message}
-                confirmText={notification?.confirmText}
-                showCancel={notification?.showCancel}
-                cancelText={notification?.cancelText}
-                onConfirm={notification?.onConfirm}
-            />
-        </>
-    );
-}
-
-export default Admin;
+                            )) : <p className="text-on-surface-secondary">Ingen nye forespørsel
