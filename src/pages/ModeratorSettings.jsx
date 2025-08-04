@@ -23,6 +23,7 @@ function ModeratorSettings() {
     const [editingService, setEditingService] = useState(null);
     const [newCategory, setNewCategory] = useState('');
     const [newService, setNewService] = useState({ name: '', stars: 1, multiplier: 1 });
+    const [editForm, setEditForm] = useState({ name: '', stars: 1, multiplier: 1 });
 
     // Announcement State
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', message: '', type: 'info' });
@@ -126,10 +127,16 @@ function ModeratorSettings() {
             ? `${newService.name} x${newService.multiplier}`
             : newService.name;
 
+        // Get existing services from both standard categories and custom services
+        const existingServices = {
+            ...(serviceCategories[categoryName] || {}), // Standard services from services.js
+            ...(services[categoryName] || {})           // Custom services from Firestore
+        };
+
         setServices({
             ...services,
             [categoryName]: {
-                ...services[categoryName],
+                ...existingServices,
                 [serviceKey]: parseInt(newService.stars)
             }
         });
@@ -146,6 +153,51 @@ function ModeratorSettings() {
                 setServices(updatedServices);
             }
         );
+    };
+
+    const editService = (categoryName, serviceName, serviceData) => {
+        const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+        const multiplier = typeof serviceData === 'object' ? serviceData.multiplier || 1 : 1;
+
+        // Extract multiplier from service name if it exists (like "x2", "x3")
+        const hasMultiplierInName = serviceName.includes(' x');
+        const cleanName = hasMultiplierInName ?
+            serviceName.replace(/ x\d+$/, '') : serviceName;
+        const actualMultiplier = hasMultiplierInName ?
+            parseInt(serviceName.match(/ x(\d+)/)?.[1] || '1') : multiplier;
+
+        setEditingService({ categoryName, serviceName });
+        setEditForm({
+            name: cleanName,
+            stars: stars,
+            multiplier: actualMultiplier
+        });
+    };
+
+    const saveEditedService = () => {
+        if (!editForm.name.trim() || editForm.stars < 1) return;
+
+        const { categoryName, serviceName } = editingService;
+        const updatedServices = { ...services };
+
+        // Remove old service
+        delete updatedServices[categoryName][serviceName];
+
+        // Add updated service with new key if multiplier > 1
+        const newServiceKey = editForm.multiplier > 1
+            ? `${editForm.name} x${editForm.multiplier}`
+            : editForm.name;
+
+        updatedServices[categoryName][newServiceKey] = parseInt(editForm.stars);
+
+        setServices(updatedServices);
+        setEditingService(null);
+        setEditForm({ name: '', stars: 1, multiplier: 1 });
+    };
+
+    const cancelEdit = () => {
+        setEditingService(null);
+        setEditForm({ name: '', stars: 1, multiplier: 1 });
     };
 
     const addAnnouncement = async () => {
@@ -244,7 +296,14 @@ function ModeratorSettings() {
                                     deleteCategory={deleteCategory}
                                     addServiceToCategory={addServiceToCategory}
                                     deleteService={deleteService}
+                                    editService={editService}
+                                    saveEditedService={saveEditedService}
+                                    cancelEdit={cancelEdit}
                                     saveServices={saveServices}
+                                    editingService={editingService}
+                                    setEditingService={setEditingService}
+                                    editForm={editForm}
+                                    setEditForm={setEditForm}
                                 />
                             )}
 
@@ -289,7 +348,7 @@ function ModeratorSettings() {
 }
 
 // Services Management Tab Component
-function ServicesTab({ services, setServices, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, saveServices }) {
+function ServicesTab({ services, setServices, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, editService, saveEditedService, cancelEdit, saveServices, editingService, setEditingService, editForm, setEditForm }) {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
 
@@ -471,6 +530,80 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
             <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-gray-900">Eksisterende tjenester</h3>
 
+                {/* Edit Service Modal */}
+                {editingService && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Rediger tjeneste</h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tjenestenavn *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editForm.name}
+                                        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Antall stjerner *
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            value={editForm.stars}
+                                            onChange={(e) => setEditForm({...editForm, stars: parseInt(e.target.value)})}
+                                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                        <Star className="absolute right-2 top-1/2 transform -translate-y-1/2 text-yellow-500" size={16} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Salg-multiplier
+                                    </label>
+                                    <select
+                                        value={editForm.multiplier}
+                                        onChange={(e) => setEditForm({...editForm, multiplier: parseInt(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                        <option value={1}>1 salg = stjerner (standard)</option>
+                                        <option value={2}>2 salg = stjerner (x2)</option>
+                                        <option value={3}>3 salg = stjerner (x3)</option>
+                                        <option value={4}>4 salg = stjerner (x4)</option>
+                                        <option value={5}>5 salg = stjerner (x5)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 mt-6">
+                                <button
+                                    onClick={saveEditedService}
+                                    disabled={!editForm.name.trim() || editForm.stars < 1}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Save size={16} />
+                                    Lagre endringer
+                                </button>
+                                <button
+                                    onClick={cancelEdit}
+                                    className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    Avbryt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {existingCategories.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                         <Star size={48} className="mx-auto text-gray-400 mb-4" />
@@ -538,7 +671,14 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        {!serviceCategories[categoryName] && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => editService(categoryName, serviceName, serviceData)}
+                                                                className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                                                                title="Rediger tjeneste"
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
                                                             <button
                                                                 onClick={() => deleteService(categoryName, serviceName)}
                                                                 className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
@@ -546,7 +686,7 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                                             >
                                                                 <Trash2 size={14} />
                                                             </button>
-                                                        )}
+                                                        </div>
                                                     </div>
 
                                                     {displayMultiplier > 1 && (
