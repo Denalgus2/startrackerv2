@@ -1,16 +1,24 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { useAuth } from './contexts/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
-import Layout from './components/Layout.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import History from './pages/History.jsx';
-import Login from './pages/Login.jsx';
-import SignUp from './pages/SignUp.jsx';
-import VerifyEmail from './pages/VerifyEmail.jsx';
-import Admin from './pages/Admin.jsx';
-import Moderator from './pages/Moderator.jsx';
-import ModeratorSettings from './pages/ModeratorSettings.jsx';
-import PendingApproval from './pages/PendingApproval.jsx';
+import { NotificationProvider } from './components/NotificationSystem.jsx';
+import { PageLoader, SuspenseFallback } from './components/LoadingSystem.jsx';
+import { useServiceWorker } from './utils/serviceWorker.js';
+import { usePerformanceMonitor, useMemoryMonitor } from './utils/performance.js';
+import { useOnlineStatus } from './components/NotificationSystem.jsx';
+
+// Lazy load components for better performance
+const Layout = lazy(() => import('./components/Layout.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const History = lazy(() => import('./pages/History.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const SignUp = lazy(() => import('./pages/SignUp.jsx'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
+const Moderator = lazy(() => import('./pages/Moderator.jsx'));
+const ModeratorSettings = lazy(() => import('./pages/ModeratorSettings.jsx'));
+const PendingApproval = lazy(() => import('./pages/PendingApproval.jsx'));
 
 // Protects routes that require a logged-in user (basic)
 function PrivateRoute({ children }) {
@@ -60,34 +68,146 @@ function AdminRoute({ children }) {
     return children;
 }
 
-
-function App() {
+// Main App component with production features
+function AppContent() {
     const basename = import.meta.env.PROD ? '/startrackerv2' : '';
 
+    // Initialize production systems
+    useServiceWorker();
+    usePerformanceMonitor('App');
+    useMemoryMonitor();
+    useOnlineStatus();
+
     return (
-        <Router basename={basename}>
-            <ErrorBoundary>
+        <ErrorBoundary>
+            <Suspense fallback={<PageLoader message="Laster applikasjon..." />}>
                 <Routes>
                     {/* Public Routes */}
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<SignUp />} />
+                    <Route
+                        path="/login"
+                        element={
+                            <Suspense fallback={<SuspenseFallback />}>
+                                <Login />
+                            </Suspense>
+                        }
+                    />
+                    <Route
+                        path="/signup"
+                        element={
+                            <Suspense fallback={<SuspenseFallback />}>
+                                <SignUp />
+                            </Suspense>
+                        }
+                    />
 
                     {/* Routes for users who have registered but may not be approved */}
-                    <Route path="/pending-approval" element={<PrivateRoute><PendingApproval /></PrivateRoute>} />
-                    <Route path="/verify-email" element={<PrivateRoute><VerifyEmail /></PrivateRoute>} />
+                    <Route
+                        path="/pending-approval"
+                        element={
+                            <PrivateRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <PendingApproval />
+                                </Suspense>
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/verify-email"
+                        element={
+                            <PrivateRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <VerifyEmail />
+                                </Suspense>
+                            </PrivateRoute>
+                        }
+                    />
 
                     {/* Main application routes protected by verification and approval */}
-                    <Route path="/" element={<ApprovedRoute><Layout><Dashboard /></Layout></ApprovedRoute>} />
-                    <Route path="/dashboard" element={<ApprovedRoute><Layout><Dashboard /></Layout></ApprovedRoute>} />
-                    <Route path="/history" element={<ApprovedRoute><Layout><History /></Layout></ApprovedRoute>} />
+                    <Route
+                        path="/"
+                        element={
+                            <ApprovedRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <Dashboard />
+                                    </Layout>
+                                </Suspense>
+                            </ApprovedRoute>
+                        }
+                    />
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <ApprovedRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <Dashboard />
+                                    </Layout>
+                                </Suspense>
+                            </ApprovedRoute>
+                        }
+                    />
+                    <Route
+                        path="/history"
+                        element={
+                            <ApprovedRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <History />
+                                    </Layout>
+                                </Suspense>
+                            </ApprovedRoute>
+                        }
+                    />
 
                     {/* Role-specific routes */}
-                    <Route path="/moderator" element={<ModeratorRoute><Layout><Moderator /></Layout></ModeratorRoute>} />
-                    <Route path="/moderator/settings" element={<ModeratorRoute><Layout><ModeratorSettings /></Layout></ModeratorRoute>} />
-                    <Route path="/admin" element={<AdminRoute><Layout><Admin /></Layout></AdminRoute>} />
+                    <Route
+                        path="/moderator"
+                        element={
+                            <ModeratorRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <Moderator />
+                                    </Layout>
+                                </Suspense>
+                            </ModeratorRoute>
+                        }
+                    />
+                    <Route
+                        path="/moderator/settings"
+                        element={
+                            <ModeratorRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <ModeratorSettings />
+                                    </Layout>
+                                </Suspense>
+                            </ModeratorRoute>
+                        }
+                    />
+                    <Route
+                        path="/admin"
+                        element={
+                            <AdminRoute>
+                                <Suspense fallback={<SuspenseFallback />}>
+                                    <Layout>
+                                        <Admin />
+                                    </Layout>
+                                </Suspense>
+                            </AdminRoute>
+                        }
+                    />
                 </Routes>
-            </ErrorBoundary>
-        </Router>
+            </Suspense>
+        </ErrorBoundary>
+    );
+}
+
+function App() {
+    return (
+        <NotificationProvider>
+            <AppContent />
+        </NotificationProvider>
     );
 }
 

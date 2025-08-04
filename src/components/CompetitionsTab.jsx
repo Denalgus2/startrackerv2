@@ -461,25 +461,25 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Startdato *
+                                    Starttidspunkt *
                                 </label>
                                 <input
-                                    type="date"
+                                    type="datetime-local"
                                     required
-                                    value={formData.startDate}
-                                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                                    value={formData.startDateTime || ''}
+                                    onChange={(e) => setFormData({...formData, startDateTime: e.target.value})}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Sluttdato *
+                                    Slutttidspunkt *
                                 </label>
                                 <input
-                                    type="date"
+                                    type="datetime-local"
                                     required
-                                    value={formData.endDate}
-                                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                                    value={formData.endDateTime || ''}
+                                    onChange={(e) => setFormData({...formData, endDateTime: e.target.value})}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
                             </div>

@@ -78,7 +78,7 @@ service cloud.firestore {
     }
 
     // --- CONFIGURATION ---
-    match /config/{configId} {
+    match /config/{docId} {
       // Any authenticated user can read config documents (like services)
       allow read: if request.auth != null;
       // Only admins and moderators can write to config documents

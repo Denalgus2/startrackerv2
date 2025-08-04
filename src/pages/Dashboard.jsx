@@ -12,6 +12,7 @@ import WeeklyReviewModal from '../components/WeeklyReviewModal';
 import LeaderboardModal from '../components/LeaderboardModal';
 import StaffLeaderboard from '../components/StaffLeaderboard';
 import AddSaleModal from '../components/AddSaleModal';
+import Countdown from '../components/Countdown';
 
 // --- Admin & Moderator View (unchanged) ---
 const AdminDashboard = ({ staff }) => {
@@ -110,6 +111,7 @@ function Dashboard() {
     const { currentUser, userRole, loading: authLoading } = useAuth();
     const [staff, setStaff] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [competition, setCompetition] = useState(null);
 
     useEffect(() => {
         // Don't set up Firestore listeners until auth is ready and user is authenticated
@@ -147,14 +149,52 @@ function Dashboard() {
         };
     }, [currentUser, authLoading]);
 
+    // Fetch current or next competition
+    useEffect(() => {
+        const competitionsQuery = query(collection(db, 'competitions'));
+        const unsub = onSnapshot(competitionsQuery, (snapshot) => {
+            const comps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const now = new Date();
+            const nextComp = comps
+                .map(c => ({
+                    ...c,
+                    start: c.startDateTime ? new Date(c.startDateTime) : null,
+                    end: c.endDateTime ? new Date(c.endDateTime) : null
+                }))
+                .filter(c => c.end && c.end > now)
+                .sort((a, b) => (a.start || 0) - (b.start || 0))[0];
+            setCompetition(nextComp || null);
+        });
+        return () => unsub();
+    }, []);
+
     if (loading) return <div className="text-center p-10">Laster data...</div>;
 
-    if (userRole === 'admin' || userRole === 'moderator') {
-        return <AdminDashboard staff={staff} />;
-    }
-
-    return <StaffDashboard staff={staff} currentUser={currentUser} />;
+    return (
+        <div>
+            {/* Competition Countdown for Staff */}
+            {competition && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold text-green-900">Konkurranse: {competition.title}</h3>
+                        <p className="text-green-700 text-sm">{competition.description}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 md:items-end">
+                        {competition.start && new Date() < competition.start ? (
+                            <Countdown target={competition.start} label="Konkurransen starter om" />
+                        ) : (
+                            <Countdown target={competition.end} label="Konkurransen slutter om" />
+                        )}
+                    </div>
+                </div>
+            )}
+            {userRole === 'admin' || userRole === 'moderator' ? (
+                <AdminDashboard staff={staff} />
+            ) : (
+                <StaffDashboard staff={staff} currentUser={currentUser} />
+            )}
+        </div>
+    );
 }
 
 export default Dashboard;
-

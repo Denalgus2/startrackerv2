@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings, Plus, Edit3, Trash2, Star, Calendar, Megaphone, Save, AlertTriangle, Shield, Trophy } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Settings, Plus, Edit3, Trash2, Star, Megaphone, Save, AlertTriangle, Trophy } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from '../components/NotificationModal';
 import CompetitionsTab from '../components/CompetitionsTab';
@@ -22,187 +22,183 @@ function ModeratorSettings() {
     // Service Management State
     const [editingService, setEditingService] = useState(null);
     const [newCategory, setNewCategory] = useState('');
-    const [newService, setNewService] = useState({ name: '', stars: 1, multiplier: 1 });
-    const [editForm, setEditForm] = useState({ name: '', stars: 1, multiplier: 1 });
+    const [newService, setNewService] = useState({ name: '', stars: 1, multiplier: 1, type: 'one-time' });
+    const [editForm, setEditForm] = useState({ name: '', stars: 1, multiplier: 1, type: 'one-time' });
 
     // Announcement State
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', message: '', type: 'info' });
 
-    // Check permissions
-    if (userRole !== 'moderator' && userRole !== 'admin') {
-        return (
-            <div className="text-center p-10">
-                <Shield className="mx-auto h-12 w-12 text-red-500"/>
-                <h2 className="mt-4 text-2xl font-bold">Ingen tilgang</h2>
-                <p className="mt-2 text-gray-600">Du har ikke rettigheter til å se denne siden.</p>
-            </div>
-        );
-    }
-
     useEffect(() => {
-        // Load services from Firestore
-        const servicesRef = doc(db, 'config', 'services');
-        const unsubServices = onSnapshot(servicesRef, (doc) => {
-            if (doc.exists()) {
-                setServices(doc.data().categories || {});
-            } else {
-                // Document doesn't exist, initialize with empty object
+        if (userRole === 'moderator' || userRole === 'admin') {
+            const servicesRef = doc(db, 'config', 'services');
+            const unsubServices = onSnapshot(servicesRef, (doc) => {
+                setServices(doc.exists() ? doc.data().categories || {} : {});
+                setLoading(false);
+            }, (error) => {
+                console.error('Error loading services:', error);
                 setServices({});
-            }
+                setLoading(false);
+            });
+
+            const settingsRef = doc(db, 'config', 'system');
+            const unsubSettings = onSnapshot(settingsRef, (doc) => {
+                setSystemSettings(doc.exists() ? doc.data() : {});
+            }, (error) => console.error('Error loading system settings:', error));
+
+            const announcementsRef = collection(db, 'announcements');
+            const unsubAnnouncements = onSnapshot(announcementsRef, (snapshot) => {
+                const announcementData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })).sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
+                setAnnouncements(announcementData);
+            }, (error) => console.error('Error loading announcements:', error));
+
+            return () => {
+                unsubServices();
+                unsubSettings();
+                unsubAnnouncements();
+            };
+        } else {
             setLoading(false);
-        }, (error) => {
-            console.error('Error loading services:', error);
-            setServices({});
-            setLoading(false);
-        });
+        }
+    }, [userRole]);
 
-        // Load system settings
-        const settingsRef = doc(db, 'config', 'system');
-        const unsubSettings = onSnapshot(settingsRef, (doc) => {
-            if (doc.exists()) {
-                setSystemSettings(doc.data());
-            } else {
-                setSystemSettings({});
-            }
-        }, (error) => {
-            console.error('Error loading system settings:', error);
-            setSystemSettings({});
-        });
-
-        // Load announcements
-        const announcementsRef = collection(db, 'announcements');
-        const unsubAnnouncements = onSnapshot(announcementsRef, (snapshot) => {
-            const announcementData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })).sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
-            setAnnouncements(announcementData);
-        }, (error) => {
-            console.error('Error loading announcements:', error);
-            setAnnouncements([]);
-        });
-
-        return () => {
-            unsubServices();
-            unsubSettings();
-            unsubAnnouncements();
-        };
-    }, []);
-
-    const saveServices = async () => {
+    const saveServices = async (customServices) => {
+        const servicesToSave = customServices ?? services;
         try {
-            await setDoc(doc(db, 'config', 'services'), { categories: services });
-            showSuccess('Tjenester oppdatert', 'Alle tjenester er lagret og vil være tilgjengelige umiddelbart.');
+            await setDoc(doc(db, 'config', 'services'), { categories: servicesToSave });
+            showSuccess('Tjenester oppdatert', 'Endringene er lagret.');
         } catch (error) {
             console.error('Error saving services:', error);
-            showError('Feil', 'Kunne ikke lagre tjenester.');
+            showError('Feil', `Kunne ikke lagre tjenester: ${error.message}`);
         }
     };
 
     const addNewCategory = () => {
         if (!newCategory.trim()) return;
-        setServices({
-            ...services,
-            [newCategory]: {}
-        });
+        const updated = { ...services, [newCategory]: {} };
+        setServices(updated);
         setNewCategory('');
+        saveServices(updated);
     };
 
     const deleteCategory = (categoryName) => {
         showConfirmation(
             'Slett kategori',
-            `Er du sikker på at du vil slette kategorien "${categoryName}" og alle tjenestene i den?`,
+            `Er du sikker på at du vil slette "${categoryName}" og alle tilhørende tjenester?`,
             () => {
                 const updatedServices = { ...services };
                 delete updatedServices[categoryName];
                 setServices(updatedServices);
+                saveServices(updatedServices);
             }
         );
     };
 
     const addServiceToCategory = (categoryName) => {
-        if (!newService.name.trim() || newService.stars < 0) return;
+        if (!newService.name.trim() || !newService.stars || parseInt(newService.stars) < 1) return;
 
         const serviceKey = newService.multiplier > 1
             ? `${newService.name} x${newService.multiplier}`
             : newService.name;
 
-        // Get existing services from both standard categories and custom services
-        const existingServices = {
-            ...(serviceCategories[categoryName] || {}), // Standard services from services.js
-            ...(services[categoryName] || {})           // Custom services from Firestore
-        };
+        const serviceValue = categoryName === 'Forsikring'
+            ? { stars: parseInt(newService.stars), type: newService.type || 'one-time', multiplier: parseInt(newService.multiplier) }
+            : (newService.multiplier > 1
+                ? { stars: parseInt(newService.stars), multiplier: parseInt(newService.multiplier) }
+                : parseInt(newService.stars));
 
-        setServices({
+        const updatedServices = {
             ...services,
             [categoryName]: {
-                ...existingServices,
-                [serviceKey]: parseInt(newService.stars)
+                ...(services[categoryName] || {}),
+                [serviceKey]: serviceValue
             }
-        });
-        setNewService({ name: '', stars: 1, multiplier: 1 });
+        };
+
+        setServices(updatedServices);
+        setNewService({ name: '', stars: 1, multiplier: 1, type: 'one-time' });
+        saveServices(updatedServices);
     };
 
     const deleteService = (categoryName, serviceName) => {
         showConfirmation(
             'Slett tjeneste',
             `Er du sikker på at du vil slette tjenesten "${serviceName}"?`,
-            () => {
+            async () => {
                 const updatedServices = { ...services };
                 delete updatedServices[categoryName][serviceName];
                 setServices(updatedServices);
+                await saveServices(updatedServices);
             }
         );
     };
 
     const editService = (categoryName, serviceName, serviceData) => {
-        const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
-        const multiplier = typeof serviceData === 'object' ? serviceData.multiplier || 1 : 1;
+        const isObject = typeof serviceData === 'object' && serviceData !== null;
 
-        // Extract multiplier from service name if it exists (like "x2", "x3")
+        const stars = isObject ? serviceData.stars : serviceData;
+        const multiplier = isObject ? serviceData.multiplier : 1;
+        const type = isObject ? serviceData.type || 'one-time' : 'one-time';
+
         const hasMultiplierInName = serviceName.includes(' x');
-        const cleanName = hasMultiplierInName ?
-            serviceName.replace(/ x\d+$/, '') : serviceName;
-        const actualMultiplier = hasMultiplierInName ?
-            parseInt(serviceName.match(/ x(\d+)/)?.[1] || '1') : multiplier;
+        const cleanName = hasMultiplierInName ? serviceName.replace(/ x\d+$/, '') : serviceName;
+        const actualMultiplier = hasMultiplierInName
+            ? parseInt(serviceName.match(/ x(\d+)/)?.[1] || '1')
+            : multiplier;
 
         setEditingService({ categoryName, serviceName });
         setEditForm({
             name: cleanName,
-            stars: stars,
-            multiplier: actualMultiplier
+            stars: parseInt(stars) || 1,
+            multiplier: parseInt(actualMultiplier) || 1,
+            type: type
         });
     };
 
     const saveEditedService = () => {
-        if (!editForm.name.trim() || editForm.stars < 1) return;
+        if (!editingService || !editForm.name.trim() || editForm.stars < 1) return;
 
         const { categoryName, serviceName } = editingService;
-        const updatedServices = { ...services };
+        const updatedCategory = { ...services[categoryName] };
+        delete updatedCategory[serviceName];
 
-        // Remove old service
-        delete updatedServices[categoryName][serviceName];
-
-        // Add updated service with new key if multiplier > 1
         const newServiceKey = editForm.multiplier > 1
             ? `${editForm.name} x${editForm.multiplier}`
             : editForm.name;
 
-        updatedServices[categoryName][newServiceKey] = parseInt(editForm.stars);
+        let serviceValue;
+        if (categoryName === 'Forsikring') {
+            serviceValue = {
+                stars: parseInt(editForm.stars),
+                multiplier: parseInt(editForm.multiplier) || 1,
+                type: editForm.type || 'one-time'
+            };
+        } else if (editForm.multiplier > 1) {
+            serviceValue = {
+                stars: parseInt(editForm.stars),
+                multiplier: parseInt(editForm.multiplier) || 1
+            };
+        } else {
+            serviceValue = parseInt(editForm.stars);
+        }
+
+        updatedCategory[newServiceKey] = serviceValue;
+        const updatedServices = { ...services, [categoryName]: updatedCategory };
 
         setServices(updatedServices);
-        setEditingService(null);
-        setEditForm({ name: '', stars: 1, multiplier: 1 });
+        saveServices(updatedServices);
+        cancelEdit();
     };
 
     const cancelEdit = () => {
         setEditingService(null);
-        setEditForm({ name: '', stars: 1, multiplier: 1 });
+        setEditForm({ name: '', stars: 1, multiplier: 1, type: 'one-time' });
     };
 
     const addAnnouncement = async () => {
         if (!newAnnouncement.title.trim() || !newAnnouncement.message.trim()) return;
-
         try {
             await addDoc(collection(db, 'announcements'), {
                 ...newAnnouncement,
@@ -211,9 +207,8 @@ function ModeratorSettings() {
                 active: true
             });
             setNewAnnouncement({ title: '', message: '', type: 'info' });
-            showSuccess('Kunngjøring lagt til', 'Kunngjøringen er nå synlig for alle ansatte.');
+            showSuccess('Kunngjøring lagt til', 'Kunngjøringen er nå synlig for alle.');
         } catch (error) {
-            console.error('Error adding announcement:', error);
             showError('Feil', 'Kunne ikke legge til kunngjøring.');
         }
     };
@@ -223,7 +218,6 @@ function ModeratorSettings() {
             await deleteDoc(doc(db, 'announcements', id));
             showSuccess('Kunngjøring slettet', 'Kunngjøringen er fjernet.');
         } catch (error) {
-            console.error('Error deleting announcement:', error);
             showError('Feil', 'Kunne ikke slette kunngjøring.');
         }
     };
@@ -250,7 +244,6 @@ function ModeratorSettings() {
         <>
             <div className="max-w-6xl mx-auto p-6">
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                    {/* Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
                         <div className="flex items-center gap-3">
                             <Settings className="h-8 w-8 text-white" />
@@ -261,7 +254,6 @@ function ModeratorSettings() {
                         </div>
                     </div>
 
-                    {/* Tab Navigation */}
                     <div className="border-b border-gray-200">
                         <nav className="flex space-x-8 px-6">
                             {tabs.map((tab) => (
@@ -281,7 +273,6 @@ function ModeratorSettings() {
                         </nav>
                     </div>
 
-                    {/* Tab Content */}
                     <div className="p-6">
                         <AnimatePresence mode="wait">
                             {activeTab === 'services' && (
@@ -299,17 +290,13 @@ function ModeratorSettings() {
                                     editService={editService}
                                     saveEditedService={saveEditedService}
                                     cancelEdit={cancelEdit}
-                                    saveServices={saveServices}
                                     editingService={editingService}
-                                    setEditingService={setEditingService}
                                     editForm={editForm}
                                     setEditForm={setEditForm}
                                 />
                             )}
 
-                            {activeTab === 'competitions' && (
-                                <CompetitionsTab />
-                            )}
+                            {activeTab === 'competitions' && <CompetitionsTab />}
 
                             {activeTab === 'announcements' && (
                                 <AnnouncementsTab
@@ -321,12 +308,7 @@ function ModeratorSettings() {
                                 />
                             )}
 
-                            {activeTab === 'system' && (
-                                <SystemTab
-                                    systemSettings={systemSettings}
-                                    setSystemSettings={setSystemSettings}
-                                />
-                            )}
+                            {activeTab === 'system' && <SystemTab />}
                         </AnimatePresence>
                     </div>
                 </div>
@@ -347,12 +329,13 @@ function ModeratorSettings() {
     );
 }
 
-// Services Management Tab Component
-function ServicesTab({ services, setServices, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, editService, saveEditedService, cancelEdit, saveServices, editingService, setEditingService, editForm, setEditForm }) {
+// --- COMPONENT DEFINITIONS ---
+
+// This is your original ServicesTab component, restored to keep your UI intact.
+function ServicesTab({ services, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, editService, saveEditedService, cancelEdit, editingService, editForm, setEditForm }) {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
 
-    // Merge existing categories from services.js with any custom categories from Firestore
     const allCategories = { ...serviceCategories, ...services };
     const existingCategories = Object.keys(allCategories);
 
@@ -368,16 +351,8 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                     <h2 className="text-xl font-semibold text-gray-900">Administrer Tjenester og Stjerner</h2>
                     <p className="text-gray-600 text-sm mt-1">Konfigurer tjenester og hvor mange stjerner de gir</p>
                 </div>
-                <button
-                    onClick={saveServices}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                    <Save size={16} />
-                    Lagre alle endringer
-                </button>
             </div>
 
-            {/* Add New Service Form */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
                     <Plus size={18} />
@@ -385,7 +360,6 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                 </h3>
 
                 <div className="space-y-4">
-                    {/* Category Selection */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Velg kategori
@@ -415,7 +389,6 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                         </div>
                     </div>
 
-                    {/* New Category Input */}
                     {showNewCategoryForm && (
                         <div className="p-4 bg-white border border-blue-200 rounded-lg">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -453,7 +426,6 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                         </div>
                     )}
 
-                    {/* Service Details Form */}
                     {(selectedCategory || showNewCategoryForm) && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white border border-blue-200 rounded-lg">
                             <div>
@@ -505,16 +477,39 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                     <option value={5}>5 salg = stjerner (x5)</option>
                                 </select>
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Type
+                                    <span className="text-xs text-gray-500 block">Gjelder kun for Forsikring</span>
+                                </label>
+                                {selectedCategory === 'Forsikring' ? (
+                                    <select
+                                        value={newService.type || 'one-time'}
+                                        onChange={e => setNewService({...newService, type: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                        <option value="one-time">Engangs (one-time)</option>
+                                        <option value="recurring">Abonnement (recurring)</option>
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value="-"
+                                        disabled
+                                        className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg text-gray-400"
+                                    />
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {/* Add Service Button */}
                     {selectedCategory && newService.name && newService.stars && (
                         <div className="flex justify-end">
                             <button
                                 onClick={() => {
                                     addServiceToCategory(selectedCategory);
-                                    setNewService({ name: '', stars: '', multiplier: 1 });
+                                    setNewService({ name: '', stars: '', multiplier: 1, type: 'one-time' });
                                 }}
                                 className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                             >
@@ -526,11 +521,9 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                 </div>
             </div>
 
-            {/* Existing Categories and Services */}
             <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-gray-900">Eksisterende tjenester</h3>
 
-                {/* Edit Service Modal */}
                 {editingService && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
@@ -558,8 +551,11 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                             type="number"
                                             min="1"
                                             max="100"
-                                            value={editForm.stars}
-                                            onChange={(e) => setEditForm({...editForm, stars: parseInt(e.target.value)})}
+                                            value={editForm.stars.toString()}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value);
+                                                setEditForm({...editForm, stars: isNaN(value) ? 1 : value});
+                                            }}
                                             className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                         <Star className="absolute right-2 top-1/2 transform -translate-y-1/2 text-yellow-500" size={16} />
@@ -581,6 +577,30 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                         <option value={4}>4 salg = stjerner (x4)</option>
                                         <option value={5}>5 salg = stjerner (x5)</option>
                                     </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Type
+                                        <span className="text-xs text-gray-500 block">Gjelder kun for Forsikring</span>
+                                    </label>
+                                    {editingService && editingService.categoryName === 'Forsikring' ? (
+                                        <select
+                                            value={editForm.type || 'one-time'}
+                                            onChange={e => setEditForm({...editForm, type: e.target.value})}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                            <option value="one-time">Engangs (one-time)</option>
+                                            <option value="recurring">Abonnement (recurring)</option>
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            value="-"
+                                            disabled
+                                            className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded-lg text-gray-400"
+                                        />
+                                    )}
                                 </div>
                             </div>
 
@@ -644,11 +664,8 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {Object.entries(categoryServices).map(([serviceName, serviceData]) => {
-                                            // Handle both old format (just stars) and new format (object with stars and multiplier)
                                             const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
                                             const multiplier = typeof serviceData === 'object' ? serviceData.multiplier || 1 : 1;
-
-                                            // Check if service name includes multiplier info (like "x2", "x3")
                                             const hasMultiplierInName = serviceName.includes(' x');
                                             const displayMultiplier = hasMultiplierInName ?
                                                 parseInt(serviceName.match(/ x(\d+)/)?.[1] || '1') : multiplier;
@@ -694,6 +711,12 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                                             Krever {displayMultiplier} salg for å få {stars} stjerne{stars !== 1 ? 'r' : ''}
                                                         </div>
                                                     )}
+
+                                                    {categoryName === 'Forsikring' && typeof serviceData === 'object' && serviceData.type && (
+                                                        <div className={`inline-block mt-2 px-2 py-1 rounded text-xs font-medium ${serviceData.type === 'recurring' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                            {serviceData.type === 'recurring' ? 'Abonnement' : 'Engangs'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -708,7 +731,7 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
     );
 }
 
-// Announcements Tab Component
+// Your original AnnouncementsTab component
 function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, addAnnouncement, deleteAnnouncement }) {
     return (
         <motion.div
@@ -719,7 +742,6 @@ function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, 
         >
             <h2 className="text-xl font-semibold text-gray-900">Administrer Kunngjøringer</h2>
 
-            {/* Add New Announcement */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h3 className="font-semibold text-blue-900 mb-4">Ny kunngjøring</h3>
                 <div className="space-y-4">
@@ -759,14 +781,13 @@ function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, 
                 </div>
             </div>
 
-            {/* Existing Announcements */}
             <div className="space-y-4">
                 {announcements.map((announcement) => (
                     <div key={announcement.id} className={`p-4 rounded-lg border-2 ${
                         announcement.type === 'success' ? 'bg-green-50 border-green-200' :
-                        announcement.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
-                        announcement.type === 'error' ? 'bg-red-50 border-red-200' :
-                        'bg-blue-50 border-blue-200'
+                            announcement.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+                                announcement.type === 'error' ? 'bg-red-50 border-red-200' :
+                                    'bg-blue-50 border-blue-200'
                     }`}>
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -797,8 +818,8 @@ function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, 
     );
 }
 
-// System Settings Tab Component
-function SystemTab({ systemSettings, setSystemSettings }) {
+// Your original SystemTab component
+function SystemTab() {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
