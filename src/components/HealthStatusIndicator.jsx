@@ -1,5 +1,5 @@
 import React from 'react';
-import { useHealthMonitor } from '../utils/healthMonitor.js';
+import { useHealthMonitor } from '../utils/healthMonitor.jsx';
 
 export function HealthStatusIndicator() {
   const { health } = useHealthMonitor();

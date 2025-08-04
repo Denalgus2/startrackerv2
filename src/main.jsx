@@ -5,7 +5,7 @@ import './index.css';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import { useSecurity } from './utils/security.js';
 import { useAnalytics } from './utils/analytics.js';
-import { useHealthMonitor } from './utils/healthMonitor.js';
+import { useHealthMonitor } from './utils/healthMonitor.jsx';
 import { BrowserRouter as Router } from 'react-router-dom';
 
 // Production initialization wrapper
