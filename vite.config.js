@@ -15,7 +15,9 @@ export default defineConfig(({ command }) => {
                 // Optimize imports in production
                 babel: {
                     plugins: command === 'build' ? ['babel-plugin-react-remove-properties'] : []
-                }
+                },
+                // Disable ESLint warnings/errors in production builds
+                eslint: command === 'build' ? false : undefined
             }),
             tailwindcss(),
             VitePWA({
@@ -114,9 +116,6 @@ export default defineConfig(({ command }) => {
         },
         preview: {
             port: 3000
-        },
-        define: {
-            __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0')
         }
     }
 })

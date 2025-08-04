@@ -26,11 +26,15 @@ class AnalyticsManager {
         document.head.appendChild(script);
 
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        window.gtag = gtag;
+        // Global analytics function
+        window.gtag = function() {
+          if (typeof window !== 'undefined' && window.dataLayer) {
+            window.dataLayer.push(arguments);
+          }
+        };
 
-        gtag('js', new Date());
-        gtag('config', GA_MEASUREMENT_ID, {
+        window.gtag('js', new Date());
+        window.gtag('config', GA_MEASUREMENT_ID, {
           session_id: this.sessionId,
           custom_map: {
             custom_parameter_1: 'app_version',

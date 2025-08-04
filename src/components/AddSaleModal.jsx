@@ -4,14 +4,14 @@ import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, upd
 import { db } from '../firebase';
 import { X, Star, FileText, ShoppingBag, Tag } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNotification } from '../hooks/useNotification';
-import { useServices } from '../hooks/useServices';
+import { useNotification } from '../hooks/useNotification.jsx';
+import { useServices } from '../hooks/useServices.jsx';
 import NotificationModal from './NotificationModal';
 
 function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     const { userRole } = useAuth();
     const { notification, showSuccess, showError, hideNotification } = useNotification();
-    const { serviceCategories, loading: servicesLoading } = useServices();
+    const { serviceCategories } = useServices();
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
     const [forsikringAmount, setForsikringAmount] = useState('');
     const [forsikringType, setForsikringType] = useState('one-time');

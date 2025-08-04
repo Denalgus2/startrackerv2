@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Settings, Plus, Edit3, Trash2, Star, Megaphone, Save, AlertTriangle, Trophy } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from '../components/NotificationModal';
 import CompetitionsTab from '../components/CompetitionsTab';
 import { serviceCategories } from '../data/services';
@@ -15,7 +15,7 @@ function ModeratorSettings() {
 
     const [activeTab, setActiveTab] = useState('services');
     const [services, setServices] = useState({});
-    const [systemSettings, setSystemSettings] = useState({});
+    const [_systemSettings, setSystemSettings] = useState({});
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -69,9 +69,8 @@ function ModeratorSettings() {
         try {
             await setDoc(doc(db, 'config', 'services'), { categories: servicesToSave });
             showSuccess('Tjenester oppdatert', 'Endringene er lagret.');
-        } catch (error) {
-            console.error('Error saving services:', error);
-            showError('Feil', `Kunne ikke lagre tjenester: ${error.message}`);
+        } catch (_error) {
+            showError('Feil', 'Kunne ikke lagre tjenester.');
         }
     };
 

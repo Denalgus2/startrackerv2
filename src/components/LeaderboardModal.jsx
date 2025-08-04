@@ -83,8 +83,8 @@ function LeaderboardModal({ isOpen, onClose }) {
     };
 
     const leaderboard = calculateStaffStats();
-    const winner = leaderboard[0];
-    const isCompetitionOver = false; // You can set this based on your competition end date
+    const _winner = staff[0];
+    const _isCompetitionOver = false; // You can set this based on your competition end date
 
     const getRankIcon = (position) => {
         switch (position) {

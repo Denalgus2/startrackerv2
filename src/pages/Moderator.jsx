@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, CheckCircle, X, Users, TrendingUp, Calendar, Settings, Shield, Star, Award, AlertTriangle, Eye, Edit3, Trash2, BarChart3, Clock } from 'lucide-react';
 import EditBilagRequestModal from '../components/EditBilagRequestModal';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from '../components/NotificationModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Countdown from '../components/Countdown';
@@ -24,19 +24,13 @@ function Moderator() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [competition, setCompetition] = useState(null);
 
-    // Permissions check
-    if (userRole !== 'moderator' && userRole !== 'admin') {
-        return (
-            <div className="text-center p-10">
-                <Shield className="mx-auto h-12 w-12 text-red-500"/>
-                <h2 className="mt-4 text-2xl font-bold">Ingen tilgang</h2>
-                <p className="mt-2 text-gray-600">Du har ikke rettigheter til å se denne siden.</p>
-            </div>
-        );
-    }
-
     // Load all data
     useEffect(() => {
+        if (userRole !== 'moderator' && userRole !== 'admin') {
+            setLoading(false);
+            return;
+        }
+
         const loadData = async () => {
             setLoading(true);
 
@@ -107,7 +101,7 @@ function Moderator() {
         };
 
         loadData();
-    }, []);
+    }, [userRole]);
 
     const handleApprove = async (request) => {
         showConfirmation(
@@ -779,8 +773,8 @@ function AnalyticsTab({ staff, sales, shifts }) {
     const totalStars = staff.reduce((sum, member) => sum + (member.stars || 0), 0);
     const totalSales = sales.length;
     const totalShifts = shifts.length;
-    const avgStarsPerStaff = staff.length > 0 ? (totalStars / staff.length).toFixed(1) : 0;
-    const avgSalesPerDay = sales.length > 0 ? (sales.length / 7).toFixed(1) : 0; // Assuming last week
+    const _avgStarsPerStaff = staff.length > 0 ? (totalStars / staff.length).toFixed(1) : 0;
+    const _avgSalesPerDay = sales.length > 0 ? (sales.length / 7).toFixed(1) : 0; // Assuming last week
 
     // Top performers
     const topPerformers = staff.slice(0, 5);

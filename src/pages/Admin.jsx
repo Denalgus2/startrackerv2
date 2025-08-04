@@ -30,13 +30,13 @@ import {
     AlertCircle
 } from 'lucide-react';
 import DeleteUserModal from '../components/DeleteUserModal';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from '../components/NotificationModal';
 import { serviceCategories } from '../data/services';
 
 function Admin() {
     const { userRole, currentUser } = useAuth(); // Merged from both
-    const { notification, showSuccess, showError, showWarning, showConfirmation, hideNotification } = useNotification();
+    const { notification, showSuccess, showError, showWarning: _showWarning, showConfirmation, hideNotification } = useNotification();
 
     // State from gemini-normalstaff
     const [pendingUsers, setPendingUsers] = useState([]);

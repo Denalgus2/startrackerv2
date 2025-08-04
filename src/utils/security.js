@@ -1,4 +1,6 @@
 // Security utilities and configuration
+import React, { useCallback, useEffect, useState } from 'react';
+
 class SecurityManager {
   constructor() {
     this.isProduction = import.meta.env.PROD;
@@ -194,8 +196,6 @@ class SecurityManager {
 }
 
 // React hooks for security features
-import { useEffect, useCallback } from 'react';
-
 export function useSecurity() {
   const security = new SecurityManager();
 
@@ -215,7 +215,7 @@ export function useSecurity() {
 
 // Hook for input sanitization
 export function useSanitizedInput(initialValue = '') {
-  const [value, setValue] = React.useState(initialValue);
+  const [value, setValue] = useState(initialValue);
   const { sanitizeInput } = useSecurity();
 
   const setSanitizedValue = useCallback((newValue) => {

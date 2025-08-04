@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
 import { X, Star, Trash2, Edit3, Save, XCircle } from 'lucide-react';
@@ -382,7 +382,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             setFormData({ bilag: '', service: '', stars: 0 });
             onClose();
         } catch (err) {
-            // handle error
+            // handle error silently
         }
         setLoading(false);
     };
