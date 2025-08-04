@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth } from '../firebase';
 import AnnouncementBanner from './AnnouncementBanner';
-import { usePendingBilagCount } from '../hooks/usePendingBilagCount';
+import { usePendingBilagCount } from '../hooks/usePendingBilagCount.jsx';
 import { useState } from 'react';
 
 const NavLink = ({ to, children, currentPath, badge, onClick }) => {
