@@ -14,6 +14,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     const { serviceCategories, loading: servicesLoading } = useServices();
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
     const [forsikringAmount, setForsikringAmount] = useState('');
+    const [forsikringType, setForsikringType] = useState('one-time');
     const [existingSales, setExistingSales] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -52,6 +53,10 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         }
     }, [isOpen, staffId]);
 
+    useEffect(() => {
+        if (!isOpen) setForsikringType('one-time');
+    }, [isOpen]);
+
     const getMultiplierProgress = () => {
         if (!formData.category || !formData.service) return null;
         const service = formData.service;
@@ -83,13 +88,24 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             return;
         }
 
+        // Only award stars for recurring on creation (not for subsequent months)
+        let starsToAdd = 0;
         const multiplierInfo = getMultiplierProgress();
-        const starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : serviceCategories[category][service];
+        if (category === 'Forsikring' && forsikringType === 'recurring') {
+            // Check if a recurring forsikring already exists for this staff and service
+            const alreadyExists = existingSales.some(sale => sale.category === 'Forsikring' && sale.service === service && sale.forsikringType === 'recurring');
+            if (!alreadyExists) {
+                starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : serviceCategories[category][service];
+            } else {
+                starsToAdd = 0;
+            }
+        } else {
+            starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : serviceCategories[category][service];
+        }
 
         try {
             // Auto-approve for moderators and admins
             if (userRole === 'moderator' || userRole === 'admin') {
-                // Directly add to sales collection
                 await addDoc(collection(db, 'sales'), {
                     staffId,
                     staffName,
@@ -99,19 +115,18 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     stars: starsToAdd,
                     timestamp: serverTimestamp(),
                     approvedBy: 'auto-approved',
-                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
+                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount), forsikringType }),
                 });
-
-                // Update staff total stars
-                const staffRef = doc(db, 'staff', staffId);
-                await updateDoc(staffRef, { stars: increment(starsToAdd) });
-
+                if (starsToAdd > 0) {
+                    const staffRef = doc(db, 'staff', staffId);
+                    await updateDoc(staffRef, { stars: increment(starsToAdd) });
+                }
                 setFormData({ bilag: '', category: '', service: '' });
                 setForsikringAmount('');
+                setForsikringType('one-time');
                 onClose();
                 showSuccess('Bilag registrert', `Bilag ${bilag} er automatisk godkjent og lagt til for ${staffName}!`);
             } else {
-                // For regular staff, create pending request
                 await addDoc(collection(db, 'bilagRequests'), {
                     staffId,
                     staffName,
@@ -121,15 +136,14 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     stars: starsToAdd,
                     status: 'pending',
                     requestedAt: serverTimestamp(),
-                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
+                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount), forsikringType }),
                 });
-
                 setFormData({ bilag: '', category: '', service: '' });
                 setForsikringAmount('');
+                setForsikringType('one-time');
                 onClose();
                 showSuccess('Forespørsel sendt', `Forespørsel om bilag ${bilag} er sendt til godkjenning!`);
             }
-
         } catch (error) {
             console.error("Error submitting bilag request:", error);
             showError('Feil', 'Kunne ikke sende forespørsel. Prøv igjen.');
@@ -211,6 +225,21 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                             <select required value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
                                                 <option value="">Velg tjeneste...</option>
                                                 {Object.keys(serviceCategories[formData.category]).map(item => <option key={item} value={item}>{item}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* Forsikring type selector */}
+                                    {formData.category === 'Forsikring' && (
+                                        <div className="mb-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Type forsikring *</label>
+                                            <select
+                                                value={forsikringType}
+                                                onChange={e => setForsikringType(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            >
+                                                <option value="one-time">Engangs (one-time)</option>
+                                                <option value="recurring">Abonnement (recurring)</option>
                                             </select>
                                         </div>
                                     )}

@@ -7,6 +7,7 @@ import EditBilagRequestModal from '../components/EditBilagRequestModal';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from '../components/NotificationModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import Countdown from '../components/Countdown';
 
 function Moderator() {
     const { userRole, currentUser } = useAuth();
@@ -21,6 +22,7 @@ function Moderator() {
     const [loading, setLoading] = useState(true);
     const [editingRequest, setEditingRequest] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [competition, setCompetition] = useState(null);
 
     // Permissions check
     if (userRole !== 'moderator' && userRole !== 'admin') {
@@ -78,11 +80,29 @@ function Moderator() {
                 setLoading(false);
             });
 
+            // Fetch current or next competition
+            const competitionsQuery = query(collection(db, 'competitions'));
+            const unsubCompetitions = onSnapshot(competitionsQuery, (snapshot) => {
+                const comps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Find the next or current competition (by start/end time)
+                const now = new Date();
+                const nextComp = comps
+                    .map(c => ({
+                        ...c,
+                        start: c.startDateTime ? new Date(c.startDateTime) : null,
+                        end: c.endDateTime ? new Date(c.endDateTime) : null
+                    }))
+                    .filter(c => c.end && c.end > now)
+                    .sort((a, b) => (a.start || 0) - (b.start || 0))[0];
+                setCompetition(nextComp || null);
+            });
+
             return () => {
                 unsubRequests();
                 unsubStaff();
                 unsubSales();
                 unsubShifts();
+                unsubCompetitions();
             };
         };
 
@@ -259,7 +279,21 @@ function Moderator() {
     }
 
     return (
-        <>
+        <div>
+            {/* Competition Countdown for Moderators/Admins */}
+            {competition && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold text-blue-900">Konkurranse: {competition.title}</h3>
+                        <p className="text-blue-700 text-sm">{competition.description}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 md:items-end">
+                        <Countdown target={competition.start} label="Starter om" />
+                        <Countdown target={competition.end} label="Slutter om" />
+                    </div>
+                </div>
+            )}
+
             <div className="max-w-7xl mx-auto p-6">
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                     {/* Header */}
@@ -366,7 +400,7 @@ function Moderator() {
                 cancelText={notification?.cancelText}
                 onConfirm={notification?.onConfirm}
             />
-        </>
+        </div>
     );
 }
 
