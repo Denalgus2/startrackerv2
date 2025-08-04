@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import './index.css';
@@ -71,7 +71,9 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
             const { useServiceWorker } = await import('./utils/serviceWorker.js');
-            // Service worker will be initialized via the hook in App component
+            const [_useServiceWorker] = useState(() => {
+                // Service worker will be initialized via the hook in App component
+            });
         } catch (error) {
             console.error('Service worker registration failed:', error);
         }

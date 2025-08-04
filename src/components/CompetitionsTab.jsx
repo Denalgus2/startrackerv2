@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { Trophy, Plus, Edit3, Trash2, Play, Pause, Award, Calendar, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNotification } from '../hooks/useNotification';
-import { useServices } from '../hooks/useServices';
+import { useServices } from '../hooks/useServices.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationModal from '../components/NotificationModal';
 

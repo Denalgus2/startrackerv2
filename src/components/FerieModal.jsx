@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, updateDoc, doc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 import { X, Calendar, Plane, Sun } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { nb } from 'date-fns/locale';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from './NotificationModal';
 
 function FerieModal({ isOpen, onClose, staffId, staffName }) {
@@ -22,6 +22,7 @@ function FerieModal({ isOpen, onClose, staffId, staffName }) {
         setLoading(true);
         try {
             const ferieDays = selectedDays.length;
+            const staffRef = doc(db, 'staff', staffId);
 
             // Add ferie days to staff record
             await updateDoc(staffRef, {

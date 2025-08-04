@@ -6,7 +6,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion } from 'framer-motion';
 import { MailCheck } from 'lucide-react';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from '../components/NotificationModal';
 
 function VerifyEmail() {

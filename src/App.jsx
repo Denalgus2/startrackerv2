@@ -70,7 +70,7 @@ function AdminRoute({ children }) {
 
 // Main App component with production features
 function AppContent() {
-    const basename = import.meta.env.PROD ? '/startrackerv2' : '';
+    const _basename = import.meta.env.BASE_URL;
 
     // Initialize production systems
     useServiceWorker();

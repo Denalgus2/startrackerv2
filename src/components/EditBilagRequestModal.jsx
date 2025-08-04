@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
 import { X, Save, FileText, ShoppingBag, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useNotification } from '../hooks/useNotification';
+import { useNotification } from '../hooks/useNotification.jsx';
 import NotificationModal from './NotificationModal';
 
 function EditBilagRequestModal({ isOpen, onClose, request }) {
