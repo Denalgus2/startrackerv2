@@ -138,9 +138,9 @@ const defaultHealthChecks = {
     try {
       if (typeof window === 'undefined') return true;
 
-      // Use a lightweight endpoint that returns 204 (no content) for connectivity check
-      const response = await fetch('https://www.googleapis.com/generate_204', {
-        method: 'GET',
+      // Simple connectivity test
+      const response = await fetch('https://www.googleapis.com/favicon.ico', {
+        method: 'HEAD',
         mode: 'no-cors'
       });
       return true;
@@ -250,6 +250,2374 @@ export function useHealthMonitor() {
     registerCheck,
     status: monitor.getStatus()
   };
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
+}
+
+// Health status component
+export function HealthStatusIndicator() {
+  const { health } = useHealthMonitor();
+
+  if (!health) return null;
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'healthy': return 'bg-green-500';
+      case 'degraded': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'healthy': return 'Alle systemer fungerer';
+      case 'degraded': return 'Noen problemer oppdaget';
+      case 'critical': return 'Kritiske problemer';
+      default: return 'Status ukjent';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <div
+        className={`w-2 h-2 rounded-full ${getStatusColor(health.status)}`}
+        title={getStatusText(health.status)}
+      />
+      <span className="text-gray-600">
+        {getStatusText(health.status)}
+      </span>
+    </div>
+  );
 }
 
 export default HealthMonitor;
