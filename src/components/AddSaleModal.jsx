@@ -24,13 +24,68 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
     const getForsikringService = (amount) => {
         const numAmount = parseFloat(amount);
-        if (numAmount < 100) return 'Mindre enn 100kr x3';
-        if (numAmount >= 100 && numAmount <= 299) return '100-299kr x2';
-        if (numAmount >= 300 && numAmount <= 499) return '300-499kr';
-        if (numAmount >= 500 && numAmount <= 999) return '500-999kr';
-        if (numAmount >= 1000 && numAmount <= 1499) return '1000-1499kr';
-        if (numAmount >= 1500) return '1500kr+';
-        return null;
+        if (!numAmount || !serviceCategories.Forsikring) {
+            return null;
+        }
+        
+        // Find matching service based on amount ranges in the configured services
+        const forsikringServices = serviceCategories.Forsikring;
+        
+        for (const [serviceName, serviceData] of Object.entries(forsikringServices)) {
+            // Extract amount range from service name (e.g., "500-999kr", "1500kr+")
+            const rangeMatch = serviceName.match(/^(\d+)-(\d+)kr/);
+            const minMatch = serviceName.match(/^(\d+)kr\+/);
+            
+            if (rangeMatch) {
+                // Handle range like "500-999kr"
+                const [, start, end] = rangeMatch;
+                const startAmount = parseInt(start);
+                const endAmount = parseInt(end);
+                if (numAmount >= startAmount && numAmount <= endAmount) {
+                    return serviceName;
+                }
+            } else if (minMatch) {
+                // Handle minimum amount like "1500kr+"
+                const [, minAmount] = minMatch;
+                if (numAmount >= parseInt(minAmount)) {
+                    return serviceName;
+                }
+            } else if (typeof serviceData === 'object' && serviceData.startAmount && serviceData.endAmount) {
+                // Handle services with stored amount ranges
+                const startAmount = parseInt(serviceData.startAmount);
+                const endAmount = parseInt(serviceData.endAmount);
+                if (numAmount >= startAmount && numAmount <= endAmount) {
+                    return serviceName;
+                }
+            }
+        }
+        
+        // If no exact match, try to find the best available service
+        // Look for services that could potentially match the amount
+        const availableServices = Object.keys(forsikringServices);
+        
+        // Try fallback mapping only if the service actually exists
+        const fallbackMappings = [
+            { condition: () => numAmount < 100, services: ['Mindre enn 100kr x3', 'Mindre enn 100kr', '0-99kr'] },
+            { condition: () => numAmount >= 100 && numAmount <= 299, services: ['100-299kr x2', '100-299kr'] },
+            { condition: () => numAmount >= 300 && numAmount <= 499, services: ['300-499kr'] },
+            { condition: () => numAmount >= 500 && numAmount <= 999, services: ['500-999kr'] },
+            { condition: () => numAmount >= 1000 && numAmount <= 1499, services: ['1000-1499kr'] },
+            { condition: () => numAmount >= 1500, services: ['1500kr+', '1500-2000kr', '1500-3000kr'] }
+        ];
+        
+        for (const mapping of fallbackMappings) {
+            if (mapping.condition()) {
+                for (const serviceName of mapping.services) {
+                    if (availableServices.includes(serviceName)) {
+                        return serviceName;
+                    }
+                }
+            }
+        }
+        
+        // If still no match, return the first available service as last resort
+        return availableServices.length > 0 ? availableServices[0] : null;
     };
 
     useEffect(() => {
@@ -38,7 +93,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             const service = getForsikringService(forsikringAmount);
             setFormData(prev => ({ ...prev, service: service }));
         }
-    }, [forsikringAmount, formData.category]);
+    }, [forsikringAmount, formData.category, serviceCategories]);
 
     useEffect(() => {
         if (isOpen && staffId) {
@@ -53,19 +108,34 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     }, [isOpen, staffId]);
 
     const getMultiplierProgress = () => {
-        if (!formData.category || !formData.service) return null;
+        if (!formData.category || !formData.service || !serviceCategories[formData.category]) {
+            return null;
+        }
+        
         const service = formData.service;
+        const categoryServices = serviceCategories[formData.category];
+        const serviceData = categoryServices[service];
+        
+        if (!serviceData) {
+            return null; // Service not found in configuration
+        }
+        
         const existingCount = existingSales.filter(sale => sale.category === formData.category && sale.service === formData.service).length;
         let multiplier = 1;
         if (service.includes(' x2')) multiplier = 2;
         else if (service.includes(' x3')) multiplier = 3;
+        else if (service.includes(' x4')) multiplier = 4;
+        else if (service.includes(' x5')) multiplier = 5;
 
         if (multiplier > 1) {
             const afterAdding = existingCount + 1;
             const starsEarned = Math.floor(afterAdding / multiplier) - Math.floor(existingCount / multiplier);
-            return { starsEarned, isMultiplier: true, existing: existingCount, needed: multiplier, afterAdding };
+            const baseStars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+            return { starsEarned: starsEarned * baseStars, isMultiplier: true, existing: existingCount, needed: multiplier, afterAdding };
         }
-        return { starsEarned: serviceCategories[formData.category][formData.service], isMultiplier: false };
+        
+        const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+        return { starsEarned: stars, isMultiplier: false };
     };
 
     const handleSubmit = async (e) => {
@@ -84,7 +154,13 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         }
 
         const multiplierInfo = getMultiplierProgress();
-        const starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : serviceCategories[category][service];
+        const starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
+        
+        if (starsToAdd === undefined || starsToAdd === null || isNaN(starsToAdd)) {
+            showError('Feil', 'Kunne ikke beregne stjerner for denne tjenesten. Kontakt administrator.');
+            setLoading(false);
+            return;
+        }
 
         try {
             // Auto-approve for moderators and admins
@@ -205,12 +281,12 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                                 className="w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
                                             />
                                         </div>
-                                    ) : formData.category && (
+                                    ) : formData.category && serviceCategories[formData.category] && (
                                         <div className="relative">
                                             <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                                             <select required value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
                                                 <option value="">Velg tjeneste...</option>
-                                                {Object.keys(serviceCategories[formData.category]).map(item => <option key={item} value={item}>{item}</option>)}
+                                                {Object.keys(serviceCategories[formData.category] || {}).map(item => <option key={item} value={item}>{item}</option>)}
                                             </select>
                                         </div>
                                     )}
