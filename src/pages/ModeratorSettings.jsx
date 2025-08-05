@@ -22,10 +22,30 @@ function ModeratorSettings() {
     // Service Management State
     const [editingService, setEditingService] = useState(null);
     const [newCategory, setNewCategory] = useState('');
-    const [newService, setNewService] = useState({ name: '', stars: 1, multiplier: 1 });
+    const [newService, setNewService] = useState({ 
+        name: '', 
+        stars: 1, 
+        multiplier: 1, 
+        isRecurring: false,
+        startAmount: '',
+        endAmount: ''
+    });
 
     // Announcement State
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', message: '', type: 'info' });
+
+    // Edit Service Modal State
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editServiceData, setEditServiceData] = useState({ 
+        category: '', 
+        name: '', 
+        stars: 1, 
+        multiplier: 1, 
+        originalName: '', 
+        isRecurring: false,
+        startAmount: '',
+        endAmount: ''
+    });
 
     // Check permissions
     if (userRole !== 'moderator' && userRole !== 'admin') {
@@ -119,31 +139,78 @@ function ModeratorSettings() {
         );
     };
 
-    const addServiceToCategory = (categoryName) => {
-        if (!newService.name.trim() || newService.stars < 0) return;
+    const addServiceToCategory = async (categoryName) => {
+        if (newService.stars < 0) return;
 
-        const serviceKey = newService.multiplier > 1
-            ? `${newService.name} x${newService.multiplier}`
-            : newService.name;
-
-        setServices({
-            ...services,
-            [categoryName]: {
-                ...services[categoryName],
-                [serviceKey]: parseInt(newService.stars)
+        let serviceKey = '';
+        
+        // For Forsikring category, handle name generation logic
+        if (categoryName === 'Forsikring') {
+            if (newService.name.trim()) {
+                // Use custom name if provided
+                serviceKey = newService.name.trim();
+            } else if (newService.startAmount && newService.endAmount) {
+                // Generate name from amount range if no custom name
+                const start = parseInt(newService.startAmount);
+                const end = parseInt(newService.endAmount);
+                if (start && end && start < end) {
+                    serviceKey = `${start}-${end}kr`;
+                }
             }
-        });
-        setNewService({ name: '', stars: 1, multiplier: 1 });
+        } else {
+            // For other categories, name is required
+            if (!newService.name.trim()) return;
+            serviceKey = newService.name.trim();
+        }
+        
+        // Ensure we have a service key
+        if (!serviceKey) return;
+        
+        // Add multiplier suffix if needed
+        if (newService.multiplier > 1) {
+            serviceKey = `${serviceKey} x${newService.multiplier}`;
+        }
+
+        const updatedCategory = {
+            ...services[categoryName],
+            [serviceKey]: {
+                stars: parseInt(newService.stars),
+                multiplier: newService.multiplier,
+                isRecurring: newService.isRecurring || false,
+                startAmount: newService.startAmount || undefined,
+                endAmount: newService.endAmount || undefined
+            }
+        };
+        const updatedServices = {
+            ...services,
+            [categoryName]: updatedCategory
+        };
+        setServices(updatedServices);
+        setNewService({ name: '', stars: 1, multiplier: 1, isRecurring: false, startAmount: '', endAmount: '' });
+        // Persist to Firestore immediately
+        try {
+            await setDoc(doc(db, 'config', 'services'), { categories: updatedServices });
+            showSuccess('Tjeneste lagt til', 'Tjenesten er lagret i Firestore.');
+        } catch (error) {
+            showError('Feil', 'Kunne ikke lagre tjenesten til Firestore.');
+        }
     };
 
-    const deleteService = (categoryName, serviceName) => {
+    const deleteService = async (categoryName, serviceName) => {
         showConfirmation(
             'Slett tjeneste',
             `Er du sikker på at du vil slette tjenesten "${serviceName}"?`,
-            () => {
+            async () => {
                 const updatedServices = { ...services };
                 delete updatedServices[categoryName][serviceName];
                 setServices(updatedServices);
+                // Persist to Firestore immediately
+                try {
+                    await setDoc(doc(db, 'config', 'services'), { categories: updatedServices });
+                    showSuccess('Tjeneste slettet', 'Tjenesten er fjernet fra Firestore.');
+                } catch (error) {
+                    showError('Feil', 'Kunne ikke slette tjenesten fra Firestore.');
+                }
             }
         );
     };
@@ -173,6 +240,83 @@ function ModeratorSettings() {
         } catch (error) {
             console.error('Error deleting announcement:', error);
             showError('Feil', 'Kunne ikke slette kunngjøring.');
+        }
+    };
+
+    const openEditModal = (category, serviceName, serviceData) => {
+        // Extract amount range from service name if it exists
+        const amountMatch = serviceName.match(/^(\d+)-(\d+)kr/);
+        const startAmount = amountMatch ? amountMatch[1] : '';
+        const endAmount = amountMatch ? amountMatch[2] : '';
+        const cleanName = amountMatch ? serviceName.replace(/^\d+-\d+kr/, '').trim() : serviceName;
+        
+        setEditServiceData({
+            category,
+            name: cleanName.replace(/ x\d+$/, ''), // Remove multiplier suffix
+            stars: typeof serviceData === 'object' ? serviceData.stars : serviceData,
+            multiplier: typeof serviceData === 'object' ? serviceData.multiplier || 1 : 1,
+            isRecurring: typeof serviceData === 'object' ? serviceData.isRecurring || false : false,
+            startAmount: typeof serviceData === 'object' ? serviceData.startAmount || startAmount : startAmount,
+            endAmount: typeof serviceData === 'object' ? serviceData.endAmount || endAmount : endAmount,
+            originalName: serviceName
+        });
+        setEditModalOpen(true);
+    };
+
+    const saveEditService = async () => {
+        const { category, name, stars, multiplier, originalName, isRecurring, startAmount, endAmount } = editServiceData;
+        if (stars < 0) return;
+        
+        let serviceKey = '';
+        
+        // For Forsikring category, handle name generation logic
+        if (category === 'Forsikring') {
+            if (name.trim()) {
+                // Use custom name if provided
+                serviceKey = name.trim();
+            } else if (startAmount && endAmount) {
+                // Generate name from amount range if no custom name
+                const start = parseInt(startAmount);
+                const end = parseInt(endAmount);
+                if (start && end && start < end) {
+                    serviceKey = `${start}-${end}kr`;
+                }
+            }
+        } else {
+            // For other categories, name is required
+            if (!name.trim()) return;
+            serviceKey = name.trim();
+        }
+        
+        // Ensure we have a service key
+        if (!serviceKey) return;
+        
+        // Add multiplier suffix if needed
+        if (multiplier > 1) {
+            serviceKey = `${serviceKey} x${multiplier}`;
+        }
+        
+        const updatedCategory = { ...services[category] };
+        // Remove old key if name or multiplier changed
+        if (originalName !== serviceKey) {
+            delete updatedCategory[originalName];
+        }
+        updatedCategory[serviceKey] = { 
+            stars: parseInt(stars), 
+            multiplier,
+            isRecurring: isRecurring || false,
+            startAmount: startAmount || undefined,
+            endAmount: endAmount || undefined
+        };
+        const updatedServices = { ...services, [category]: updatedCategory };
+        setServices(updatedServices);
+        setEditModalOpen(false);
+        // Persist to Firestore
+        try {
+            await setDoc(doc(db, 'config', 'services'), { categories: updatedServices });
+            showSuccess('Tjeneste oppdatert', 'Endringene er lagret i Firestore.');
+        } catch (error) {
+            showError('Feil', 'Kunne ikke oppdatere tjenesten i Firestore.');
         }
     };
 
@@ -245,6 +389,7 @@ function ModeratorSettings() {
                                     addServiceToCategory={addServiceToCategory}
                                     deleteService={deleteService}
                                     saveServices={saveServices}
+                                    openEditModal={openEditModal}
                                 />
                             )}
 
@@ -284,12 +429,123 @@ function ModeratorSettings() {
                 cancelText={notification?.cancelText}
                 onConfirm={notification?.onConfirm}
             />
+
+            {/* Edit Service Modal */}
+            {editModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                        <h3 className="text-lg font-semibold mb-4">Rediger tjeneste</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tjenestenavn *</label>
+                                <input
+                                    type="text"
+                                    value={editServiceData.name}
+                                    onChange={e => setEditServiceData({ ...editServiceData, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Antall stjerner *</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={editServiceData.stars}
+                                    onChange={e => setEditServiceData({ ...editServiceData, stars: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Salg-multiplier</label>
+                                <select
+                                    value={editServiceData.multiplier}
+                                    onChange={e => setEditServiceData({ ...editServiceData, multiplier: parseInt(e.target.value) })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                    <option value={1}>1 salg = stjerner (standard)</option>
+                                    <option value={2}>2 salg = stjerner (x2)</option>
+                                    <option value={3}>3 salg = stjerner (x3)</option>
+                                    <option value={4}>4 salg = stjerner (x4)</option>
+                                    <option value={5}>5 salg = stjerner (x5)</option>
+                                </select>
+                            </div>
+                            {editServiceData.category === 'Forsikring' && (
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h4 className="font-medium text-gray-700 mb-3">Beløpsområde</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fra beløp (kr)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={editServiceData.startAmount}
+                                                onChange={(e) => setEditServiceData({...editServiceData, startAmount: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Til beløp (kr)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={editServiceData.endAmount}
+                                                onChange={(e) => setEditServiceData({...editServiceData, endAmount: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {editServiceData.category === 'Forsikring' && (
+                                <div className="border-t border-gray-200 pt-4">
+                                    <div className="flex items-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            id="editIsRecurring"
+                                            checked={editServiceData.isRecurring}
+                                            onChange={(e) => setEditServiceData({...editServiceData, isRecurring: e.target.checked})}
+                                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <div className="flex-1">
+                                            <label htmlFor="editIsRecurring" className="font-medium text-gray-700">
+                                                Abonnement/Kontinuerlig forsikring
+                                            </label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Markér dette hvis forsikringen er et månedlig abonnement. Stjerner gis kun én gang ved første salg.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => setEditModalOpen(false)}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                            >
+                                Avbryt
+                            </button>
+                            <button
+                                onClick={saveEditService}
+                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                                Lagre endringer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
 
 // Services Management Tab Component
-function ServicesTab({ services, setServices, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, saveServices }) {
+function ServicesTab({ services, setServices, newCategory, setNewCategory, newService, setNewService, addNewCategory, deleteCategory, addServiceToCategory, deleteService, saveServices, openEditModal }) {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
 
@@ -396,66 +652,133 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
 
                     {/* Service Details Form */}
                     {(selectedCategory || showNewCategoryForm) && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white border border-blue-200 rounded-lg">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Tjenestenavn *
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="f.eks. 'Mobilabonnement 500GB'"
-                                    value={newService.name}
-                                    onChange={(e) => setNewService({...newService, name: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Antall stjerner *
-                                    <span className="text-xs text-gray-500 block">Hvor mange stjerner gir dette salget?</span>
-                                </label>
-                                <div className="relative">
+                        <div className="space-y-4 p-4 bg-white border border-blue-200 rounded-lg">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tjenestenavn *
+                                    </label>
                                     <input
-                                        type="number"
-                                        placeholder="1"
-                                        min="1"
-                                        max="100"
-                                        value={newService.stars}
-                                        onChange={(e) => setNewService({...newService, stars: e.target.value})}
-                                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        type="text"
+                                        placeholder={selectedCategory === 'Forsikring' ? "f.eks. 'Bilforsikring' (valgfritt hvis du bruker beløpsområde)" : "f.eks. 'Mobilabonnement 500GB'"}
+                                        value={newService.name}
+                                        onChange={(e) => setNewService({...newService, name: e.target.value})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                     />
-                                    <Star className="absolute right-2 top-1/2 transform -translate-y-1/2 text-yellow-500" size={16} />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Antall stjerner *
+                                        <span className="text-xs text-gray-500 block">Hvor mange stjerner gir dette salget?</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            placeholder="1"
+                                            min="1"
+                                            max="100"
+                                            value={newService.stars}
+                                            onChange={(e) => setNewService({...newService, stars: e.target.value})}
+                                            className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                        <Star className="absolute right-2 top-1/2 transform -translate-y-1/2 text-yellow-500" size={16} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Salg-multiplier
+                                        <span className="text-xs text-gray-500 block">Hvor mange salg trengs for å få stjernene?</span>
+                                    </label>
+                                    <select
+                                        value={newService.multiplier}
+                                        onChange={(e) => setNewService({...newService, multiplier: parseInt(e.target.value)})}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                        <option value={1}>1 salg = stjerner (standard)</option>
+                                        <option value={2}>2 salg = stjerner (x2)</option>
+                                        <option value={3}>3 salg = stjerner (x3)</option>
+                                        <option value={4}>4 salg = stjerner (x4)</option>
+                                        <option value={5}>5 salg = stjerner (x5)</option>
+                                    </select>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Salg-multiplier
-                                    <span className="text-xs text-gray-500 block">Hvor mange salg trengs for å få stjernene?</span>
-                                </label>
-                                <select
-                                    value={newService.multiplier}
-                                    onChange={(e) => setNewService({...newService, multiplier: parseInt(e.target.value)})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                    <option value={1}>1 salg = stjerner (standard)</option>
-                                    <option value={2}>2 salg = stjerner (x2)</option>
-                                    <option value={3}>3 salg = stjerner (x3)</option>
-                                    <option value={4}>4 salg = stjerner (x4)</option>
-                                    <option value={5}>5 salg = stjerner (x5)</option>
-                                </select>
-                            </div>
+                            {/* Insurance Amount Range */}
+                            {selectedCategory === 'Forsikring' && (
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h4 className="font-medium text-gray-700 mb-3">Beløpsområde (valgfritt)</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Fra beløp (kr)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                placeholder="f.eks. 500"
+                                                min="0"
+                                                value={newService.startAmount}
+                                                onChange={(e) => setNewService({...newService, startAmount: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Til beløp (kr)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                placeholder="f.eks. 999"
+                                                min="0"
+                                                value={newService.endAmount}
+                                                onChange={(e) => setNewService({...newService, endAmount: e.target.value})}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Hvis du spesifiserer beløpsområde, vil tjenesten automatisk få navn som "500-999kr"
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Insurance Recurring Option */}
+                            {selectedCategory === 'Forsikring' && (
+                                <div className="border-t border-gray-200 pt-4">
+                                    <div className="flex items-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            id="isRecurring"
+                                            checked={newService.isRecurring}
+                                            onChange={(e) => setNewService({...newService, isRecurring: e.target.checked})}
+                                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <div className="flex-1">
+                                            <label htmlFor="isRecurring" className="font-medium text-gray-700">
+                                                Abonnement/Kontinuerlig forsikring
+                                            </label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Markér dette hvis forsikringen er et månedlig abonnement. Stjerner gis kun én gang ved første salg, ikke hver måned.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Add Service Button */}
-                    {selectedCategory && newService.name && newService.stars && (
+                    {selectedCategory && newService.stars && (
+                        // For Forsikring: either name OR amount range is required
+                        (selectedCategory !== 'Forsikring' && newService.name.trim()) ||
+                        (selectedCategory === 'Forsikring' && (newService.name.trim() || (newService.startAmount && newService.endAmount)))
+                    ) && (
                         <div className="flex justify-end">
                             <button
                                 onClick={() => {
                                     addServiceToCategory(selectedCategory);
-                                    setNewService({ name: '', stars: '', multiplier: 1 });
+                                    setNewService({ name: '', stars: '', multiplier: 1, isRecurring: false, startAmount: '', endAmount: '' });
                                 }}
                                 className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                             >
@@ -493,15 +816,13 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                     <span className="text-sm text-gray-600">
                                         {Object.keys(categoryServices).length} tjeneste{Object.keys(categoryServices).length !== 1 ? 'r' : ''}
                                     </span>
-                                    {!serviceCategories[categoryName] && (
-                                        <button
-                                            onClick={() => deleteCategory(categoryName)}
-                                            className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Slett kategori"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => deleteCategory(categoryName)}
+                                        className="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Slett kategori"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
 
@@ -514,18 +835,20 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                             // Handle both old format (just stars) and new format (object with stars and multiplier)
                                             const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
                                             const multiplier = typeof serviceData === 'object' ? serviceData.multiplier || 1 : 1;
+                                            const isRecurring = typeof serviceData === 'object' ? serviceData.isRecurring || false : false;
 
-                                            // Check if service name includes multiplier info (like "x2", "x3")
-                                            const hasMultiplierInName = serviceName.includes(' x');
+                                            // Check if service name includes multiplier info (like "x2", "x3") at the end
+                                            const multiplierMatch = serviceName.match(/ x(\d+)$/);
+                                            const hasMultiplierInName = multiplierMatch !== null;
                                             const displayMultiplier = hasMultiplierInName ?
-                                                parseInt(serviceName.match(/ x(\d+)/)?.[1] || '1') : multiplier;
+                                                parseInt(multiplierMatch[1] || '1') : multiplier;
 
                                             return (
                                                 <div key={serviceName} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                                     <div className="flex items-start justify-between mb-3">
                                                         <div className="flex-1">
                                                             <h4 className="font-medium text-gray-900 mb-2">{serviceName}</h4>
-                                                            <div className="flex items-center gap-3 text-sm">
+                                                            <div className="flex items-center gap-2 text-sm flex-wrap">
                                                                 <div className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
                                                                     <Star size={14} fill="currentColor" />
                                                                     <span className="font-semibold">{stars} stjerne{stars !== 1 ? 'r' : ''}</span>
@@ -536,9 +859,27 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                                                         <span className="text-xs">salg</span>
                                                                     </div>
                                                                 )}
+                                                                {categoryName === 'Forsikring' && (
+                                                                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full ${
+                                                                        isRecurring 
+                                                                        ? 'text-purple-600 bg-purple-50' 
+                                                                        : 'text-green-600 bg-green-50'
+                                                                    }`}>
+                                                                        <span className="text-xs font-semibold">
+                                                                            {isRecurring ? 'Abonnement' : 'Engangs'}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        {!serviceCategories[categoryName] && (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => openEditModal(categoryName, serviceName, serviceData)}
+                                                                className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors"
+                                                                title="Rediger tjeneste"
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
                                                             <button
                                                                 onClick={() => deleteService(categoryName, serviceName)}
                                                                 className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition-colors"
@@ -546,12 +887,16 @@ function ServicesTab({ services, setServices, newCategory, setNewCategory, newSe
                                                             >
                                                                 <Trash2 size={14} />
                                                             </button>
-                                                        )}
+                                                        </div>
                                                     </div>
-
                                                     {displayMultiplier > 1 && (
-                                                        <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                                                        <div className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded mb-2">
                                                             Krever {displayMultiplier} salg for å få {stars} stjerne{stars !== 1 ? 'r' : ''}
+                                                        </div>
+                                                    )}
+                                                    {isRecurring && (
+                                                        <div className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                                                            🔄 Abonnement - Stjerner gis kun ved første salg
                                                         </div>
                                                     )}
                                                 </div>
