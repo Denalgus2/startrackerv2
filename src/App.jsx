@@ -55,10 +55,8 @@ function AdminRoute({ children }) {
 
 
 function App() {
-    const basename = import.meta.env.PROD ? '/startrackerv2' : '';
-
     return (
-        <Router basename={basename}>
+    <Router>
             <ErrorBoundary>
                 <Routes>
                     {/* Public Routes */}
