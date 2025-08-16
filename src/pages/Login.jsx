@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, KeyRound } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const ElkjopBanner = () => (
@@ -14,18 +14,62 @@ function Login() {
     const [emailOrUsername, setEmailOrUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [needsEmailLink, setNeedsEmailLink] = useState(false);
+    const [emailForBackfill, setEmailForBackfill] = useState('');
+    const [expectedUid, setExpectedUid] = useState(null);
     const navigate = useNavigate();
+
+    // Persist form values during any brief route churn
+    useEffect(() => {
+        const saved = sessionStorage.getItem('loginForm');
+        if (saved) {
+            try {
+                const { emailOrUsername, password } = JSON.parse(saved);
+                if (emailOrUsername) setEmailOrUsername(emailOrUsername);
+                if (password) setPassword(password);
+            } catch {}
+        }
+    }, []);
+
+    useEffect(() => {
+        sessionStorage.setItem('loginForm', JSON.stringify({ emailOrUsername, password }));
+        return () => {
+            sessionStorage.setItem('loginForm', JSON.stringify({ emailOrUsername, password }));
+        };
+    }, [emailOrUsername, password]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         try {
-            let emailToUse = emailOrUsername;
+            const rawInput = emailOrUsername.trim();
+            const pwd = password;
+            let emailToUse = rawInput;
+
+            // If we're in the backfill flow, attempt to sign in with provided email and verify UID
+            if (needsEmailLink) {
+                const emailLower = emailForBackfill.trim().toLowerCase();
+                if (!emailLower || !emailLower.includes('@')) {
+                    setError('Angi en gyldig e-post.');
+                    return;
+                }
+                const cred = await signInWithEmailAndPassword(auth, emailLower, pwd);
+                if (expectedUid && cred.user?.uid !== expectedUid) {
+                    setError('E-posten samsvarer ikke med brukernavnet.');
+                    return;
+                }
+                // Backfill the username mapping now that we verified same account
+                const usernameLower = rawInput.toLowerCase();
+                const usernameRef = doc(db, 'usernames', usernameLower);
+                await setDoc(usernameRef, { uid: cred.user.uid, email: emailLower }, { merge: true });
+                navigate('/', { replace: true });
+                return;
+            }
 
             // --- Check if input is a username (does not contain '@') ---
-            if (!emailOrUsername.includes('@')) {
-                const usernameLower = emailOrUsername.toLowerCase();
+            if (rawInput && !rawInput.includes('@')) {
+                const usernameLower = rawInput.toLowerCase();
                 const usernameRef = doc(db, 'usernames', usernameLower);
                 const usernameSnap = await getDoc(usernameRef);
 
@@ -34,22 +78,34 @@ function Login() {
                     return;
                 }
 
-                // Get the UID from the username mapping
-                const { uid } = usernameSnap.data();
-
-                // Get the user's email from their main user document
-                const userRef = doc(db, 'users', uid);
-                const userSnap = await getDoc(userRef);
-
-                if (!userSnap.exists()) {
-                    setError('Fant ikke tilknyttet brukerkonto.');
+                // Read email directly from the public usernames mapping to avoid protected reads
+                const data = usernameSnap.data();
+                emailToUse = (data.email || '').trim();
+                if (!emailToUse) {
+                    // Start a backfill flow: ask user for their email, then verify uid match on sign-in
+                    setExpectedUid(data.uid || null);
+                    setNeedsEmailLink(true);
+                    setError('Dette brukernavnet mangler e-post. Skriv inn e-posten din for å koble den.');
                     return;
                 }
-                emailToUse = userSnap.data().email;
             }
 
-            await signInWithEmailAndPassword(auth, emailToUse, password);
-            navigate('/');
+            const cred = await signInWithEmailAndPassword(auth, (emailToUse || '').toLowerCase(), pwd);
+            // Best-effort: if the user has a displayName (username), ensure the usernames mapping contains their email
+            try {
+                const username = cred.user?.displayName?.trim()?.toLowerCase();
+                const email = cred.user?.email?.toLowerCase();
+                if (username && email) {
+                    const usernameRef = doc(db, 'usernames', username);
+                    // Use set with merge to avoid overwriting uid if present
+                    await setDoc(usernameRef, { email }, { merge: true });
+                }
+            } catch (e) {
+                // Non-fatal
+                console.warn('Could not backfill username mapping:', e);
+            }
+            // Use replace to avoid back navigation returning to login
+            navigate('/', { replace: true });
         } catch (err) {
             console.error('Login error:', err);
             if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
@@ -84,10 +140,23 @@ function Login() {
                             <input type="password" required placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)}
                                    className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                         </div>
+                        {needsEmailLink && (
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                                <input
+                                    type="email"
+                                    required
+                                    placeholder="E-posten din (for å koble til brukernavn)"
+                                    value={emailForBackfill}
+                                    onChange={(e) => setEmailForBackfill(e.target.value)}
+                                    className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                                />
+                            </div>
+                        )}
                         {error && <p className="text-danger text-sm text-center">{error}</p>}
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} type="submit"
                                        className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
-                            Logg inn
+                            {needsEmailLink ? 'Koble og logg inn' : 'Logg inn'}
                         </motion.button>
                     </form>
                     <p className="text-center text-sm text-on-surface-secondary">

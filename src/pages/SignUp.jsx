@@ -71,8 +71,8 @@ function SignUp() {
             // Update Auth profile with the chosen username
             await updateProfile(user, { displayName: username });
 
-            // Create a mapping from the lowercase username to the user's UID for easy login lookup
-            await setDoc(usernameRef, { uid: user.uid });
+            // Create a mapping from the lowercase username to the user's UID and email for easy login lookup
+            await setDoc(usernameRef, { uid: user.uid, email: emailLower });
 
             // The AuthContext will handle creating the document in the 'users' collection.
 

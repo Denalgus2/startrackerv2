@@ -14,49 +14,42 @@ import PendingApproval from './pages/PendingApproval.jsx';
 
 // Protects routes that require a logged-in user (basic)
 function PrivateRoute({ children }) {
-    const { currentUser } = useAuth();
-    return currentUser ? children : <Navigate to="/login" />;
+    const { currentUser, loading } = useAuth();
+    if (loading) return <div />; // lightweight hold to prevent route churn
+    return currentUser ? children : <Navigate to="/login" replace />;
 }
 
 // --- New, more robust route protector ---
 // Protects routes that require a VERIFIED and APPROVED user
 function ApprovedRoute({ children }) {
-    const { currentUser, userRole } = useAuth();
-
-    if (!currentUser) {
-        return <Navigate to="/login" />;
-    }
-    if (!currentUser.emailVerified) {
-        return <Navigate to="/verify-email" />;
-    }
-    if (userRole === 'pending') {
-        return <Navigate to="/pending-approval" />;
-    }
-    // Only allow users with an actual role to proceed
-    if (userRole === 'staff' || userRole === 'moderator' || userRole === 'admin') {
-        return children;
-    }
-    // Fallback for any other case (e.g., role is null while loading)
-    return <Navigate to="/login" />;
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <div />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (!currentUser.emailVerified) return <Navigate to="/verify-email" replace />;
+    if (userRole === 'pending') return <Navigate to="/pending-approval" replace />;
+    if (userRole === 'staff' || userRole === 'moderator' || userRole === 'admin') return children;
+    return <Navigate to="/login" replace />;
 }
 
 // Route protector for Moderators and Admins
 function ModeratorRoute({ children }) {
-    const { currentUser, userRole } = useAuth();
-    if (!currentUser) return <Navigate to="/login" />;
-    if (!currentUser.emailVerified) return <Navigate to="/verify-email" />;
-    if (userRole === 'pending') return <Navigate to="/pending-approval" />;
-    if (userRole !== 'moderator' && userRole !== 'admin') return <Navigate to="/" />;
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <div />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (!currentUser.emailVerified) return <Navigate to="/verify-email" replace />;
+    if (userRole === 'pending') return <Navigate to="/pending-approval" replace />;
+    if (userRole !== 'moderator' && userRole !== 'admin') return <Navigate to="/" replace />;
     return children;
 }
 
 // Route protector for Admins only
 function AdminRoute({ children }) {
-    const { currentUser, userRole } = useAuth();
-    if (!currentUser) return <Navigate to="/login" />;
-    if (!currentUser.emailVerified) return <Navigate to="/verify-email" />;
-    if (userRole === 'pending') return <Navigate to="/pending-approval" />;
-    if (userRole !== 'admin') return <Navigate to="/" />;
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <div />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (!currentUser.emailVerified) return <Navigate to="/verify-email" replace />;
+    if (userRole === 'pending') return <Navigate to="/pending-approval" replace />;
+    if (userRole !== 'admin') return <Navigate to="/" replace />;
     return children;
 }
 
