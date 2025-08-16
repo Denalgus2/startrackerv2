@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -18,5 +18,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Ensure auth state persists across page reloads and navigations
+// This can prevent odd re-auth/redirect loops that look like a page refresh
+try {
+    // Not awaited so it doesn't block module initialization; executes before any sign-in
+    setPersistence(auth, browserLocalPersistence);
+} catch (e) {
+    // No-op: fallback to default persistence
+}
 
 export { db, auth };
