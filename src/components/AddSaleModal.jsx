@@ -8,11 +8,12 @@ import { useNotification } from '../hooks/useNotification';
 import { useServices } from '../hooks/useServices';
 import NotificationModal from './NotificationModal';
 
-function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
+function AddSaleModal({ isOpen, onClose, staffId, staffName, competitions = [] }) {
     const { userRole } = useAuth();
     const { notification, showSuccess, showError, hideNotification } = useNotification();
     const { serviceCategories, loading: servicesLoading } = useServices();
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
+    const [competitionId, setCompetitionId] = useState('');
     const [forsikringAmount, setForsikringAmount] = useState('');
     const [existingSales, setExistingSales] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -147,7 +148,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             service = getForsikringService(forsikringAmount);
         }
 
-        if (!staffId || !bilag || !category || !service) {
+    if (!staffId || !bilag || !category || !service) {
             showError('Manglende informasjon', 'Vennligst fyll ut alle felter.');
             setLoading(false);
             return;
@@ -164,7 +165,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
         try {
             // Auto-approve for moderators and admins
-            if (userRole === 'moderator' || userRole === 'admin') {
+        if (userRole === 'moderator' || userRole === 'admin') {
                 // Directly add to sales collection
                 await addDoc(collection(db, 'sales'), {
                     staffId,
@@ -174,7 +175,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     service,
                     stars: starsToAdd,
                     timestamp: serverTimestamp(),
-                    approvedBy: 'auto-approved',
+            approvedBy: 'auto-approved',
+            ...(competitionId ? { competitionId } : {}),
                     ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
                 });
 
@@ -184,6 +186,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
                 setFormData({ bilag: '', category: '', service: '' });
                 setForsikringAmount('');
+                setCompetitionId('');
                 onClose();
                 showSuccess('Bilag registrert', `Bilag ${bilag} er automatisk godkjent og lagt til for ${staffName}!`);
             } else {
@@ -197,11 +200,13 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     stars: starsToAdd,
                     status: 'pending',
                     requestedAt: serverTimestamp(),
+                    ...(competitionId ? { competitionId } : {}),
                     ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
                 });
 
                 setFormData({ bilag: '', category: '', service: '' });
                 setForsikringAmount('');
+                setCompetitionId('');
                 onClose();
                 showSuccess('Forespørsel sendt', `Forespørsel om bilag ${bilag} er sendt til godkjenning!`);
             }
@@ -246,6 +251,21 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
                             <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
                                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
+                                    {competitions.length > 0 && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Konkurranse (velg én eller Alle)</label>
+                                            <select
+                                                value={competitionId}
+                                                onChange={e => setCompetitionId(e.target.value)}
+                                                className="w-full px-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
+                                            >
+                                                <option value="">Alle (global)</option>
+                                                {competitions.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     <div className="relative">
                                         <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                                         <input

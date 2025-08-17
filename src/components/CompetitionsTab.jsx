@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Trophy, Plus, Edit3, Trash2, Play, Pause, Award, Calendar, Target } from 'lucide-react';
+import { Trophy, Plus, Edit3, Trash2, Play, Pause, Award, Calendar, Target, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNotification } from '../hooks/useNotification';
 import { useServices } from '../hooks/useServices';
@@ -232,6 +232,9 @@ function CompetitionsTab() {
                                                 {competition.endDate?.toDate().toLocaleDateString('no-NO')}
                                             </span>
                                         </div>
+                                        {competition.endDate?.toDate && (
+                                            <CountdownBadge endDate={competition.endDate.toDate()} status={competition.status} />
+                                        )}
                                         <div className="flex items-center gap-1">
                                             <Target size={14} />
                                             <span>{competition.targetServices?.length || 0} tjenester</span>
@@ -324,8 +327,11 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
         reward: '',
         targetServices: [],
         multiplier: 1,
-        status: 'active'
+        status: 'active',
+        participants: []
     });
+    const [allStaff, setAllStaff] = useState([]);
+    const [staffSearch, setStaffSearch] = useState('');
 
     useEffect(() => {
         if (competition) {
@@ -337,7 +343,8 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
                 reward: competition.reward || '',
                 targetServices: competition.targetServices || [],
                 multiplier: competition.multiplier || 1,
-                status: competition.status || 'active'
+                status: competition.status || 'active',
+                participants: competition.participants || []
             });
         } else {
             setFormData({
@@ -348,10 +355,22 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
                 reward: '',
                 targetServices: [],
                 multiplier: 1,
-                status: 'active'
+                status: 'active',
+                participants: []
             });
         }
     }, [competition, isOpen]);
+
+    // Load staff list for participant selection
+    useEffect(() => {
+        if (!isOpen) return;
+        const unsub = onSnapshot(collection(db, 'staff'), (snapshot) => {
+            const staffData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            staffData.sort((a, b) => a.name.localeCompare(b.name));
+            setAllStaff(staffData);
+        });
+        return () => unsub();
+    }, [isOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -530,6 +549,54 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
                                 ))}
                             </div>
                         </div>
+
+                        {/* Participants */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Deltakere ({formData.participants.length})
+                                </label>
+                                <span className="text-xs text-gray-500">Velg hvem som er med i denne konkurransen</span>
+                            </div>
+                            <div className="mb-3">
+                                <input
+                                    type="text"
+                                    value={staffSearch}
+                                    onChange={(e) => setStaffSearch(e.target.value)}
+                                    placeholder="Søk etter ansatt..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                />
+                            </div>
+                            <div className="border border-gray-200 rounded-lg p-3 max-h-56 overflow-y-auto">
+                                {allStaff
+                                    .filter(s => !staffSearch || s.name.toLowerCase().includes(staffSearch.toLowerCase()))
+                                    .map((s) => {
+                                        const checked = formData.participants.includes(s.id);
+                                        return (
+                                            <label key={s.id} className="flex items-center justify-between px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setFormData({ ...formData, participants: [...formData.participants, s.id] });
+                                                            } else {
+                                                                setFormData({ ...formData, participants: formData.participants.filter(id => id !== s.id) });
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-sm text-gray-700">{s.name}</span>
+                                                </div>
+                                                {checked && <span className="text-xs text-green-700 bg-green-100 border border-green-200 rounded px-2 py-0.5">Valgt</span>}
+                                            </label>
+                                        );
+                                    })}
+                                {allStaff.length === 0 && (
+                                    <div className="text-sm text-gray-500">Ingen ansatte funnet.</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
@@ -555,3 +622,24 @@ function CompetitionModal({ isOpen, onClose, competition, serviceCategories }) {
 }
 
 export default CompetitionsTab;
+
+function CountdownBadge({ endDate, status }) {
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(t);
+    }, []);
+    const diff = Math.max(0, endDate.getTime() - now.getTime());
+    const seconds = Math.floor(diff / 1000) % 60;
+    const minutes = Math.floor(diff / (1000 * 60)) % 60;
+    const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const ended = diff <= 0 || status === 'ended';
+    const text = ended ? 'Avsluttet' : `${days}d ${hours}t ${minutes}m ${seconds}s`;
+    return (
+        <div className={`flex items-center gap-1 ${ended ? 'text-gray-600' : 'text-blue-700'}`}>
+            <Timer size={14} />
+            <span>{text}</span>
+        </div>
+    );
+}

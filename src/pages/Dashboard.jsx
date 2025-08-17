@@ -12,6 +12,7 @@ import WeeklyReviewModal from '../components/WeeklyReviewModal';
 import LeaderboardModal from '../components/LeaderboardModal';
 import StaffLeaderboard from '../components/StaffLeaderboard';
 import AddSaleModal from '../components/AddSaleModal';
+import { useCompetitions } from '../hooks/useCompetitions';
 
 // --- Admin & Moderator View (unchanged) ---
 const AdminDashboard = ({ staff }) => {
@@ -20,6 +21,8 @@ const AdminDashboard = ({ staff }) => {
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
     const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
     const [areStarsHidden, setAreStarsHidden] = useState(false);
+    const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
+    const { competitions } = useCompetitions();
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -28,6 +31,8 @@ const AdminDashboard = ({ staff }) => {
             transition: { staggerChildren: 0.05 },
         },
     };
+
+    const selectedCompetition = competitions.find(c => c.id === selectedCompetitionId) || null;
 
     return (
         <div className="space-y-6">
@@ -50,20 +55,46 @@ const AdminDashboard = ({ staff }) => {
                         <UserPlus size={14} className="sm:w-4 sm:h-4"/><span>Legg til ansatt</span>
                     </button>
                 </div>
+                <div className="flex items-center gap-2 mt-2">
+                    <label className="text-sm text-on-surface-secondary">Konkurranse:</label>
+                    <select
+                        value={selectedCompetitionId}
+                        onChange={(e) => setSelectedCompetitionId(e.target.value)}
+                        className="px-3 py-2 bg-surface border border-gray-300 rounded-lg text-sm"
+                    >
+                        <option value="">Alle (global)</option>
+                        {competitions.map(c => (
+                            <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                    </select>
+                </div>
             </header>
 
             <main>
                 <motion.div variants={containerVariants} initial="hidden" animate="visible" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {staff.map((member) => (
-                        <StaffCard key={member.id} staffMember={member} areStarsHidden={areStarsHidden} />
-                    ))}
+                    {staff
+                        .filter(member => {
+                            if (!selectedCompetitionId) return true;
+                            const comp = competitions.find(c => c.id === selectedCompetitionId);
+                            return comp && Array.isArray(comp.participants) && comp.participants.includes(member.id);
+                        })
+                        .map((member) => (
+                            <StaffCard key={member.id} staffMember={member} areStarsHidden={areStarsHidden} />
+                        ))}
                 </motion.div>
+                <div className="mt-8">
+                    <LeaderboardModal
+                        isOpen={isLeaderboardOpen}
+                        onClose={() => setLeaderboardOpen(false)}
+                        competition={selectedCompetition || undefined}
+                        competitions={competitions}
+                    />
+                </div>
             </main>
 
             <AddStaffModal isOpen={isStaffModalOpen} onClose={() => setStaffModalOpen(false)} />
             <ImportSalesModal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} staffList={staff} />
             <WeeklyReviewModal isOpen={isReviewModalOpen} onClose={() => setReviewModalOpen(false)} staffList={staff} />
-            <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
         </div>
     );
 };
@@ -72,25 +103,66 @@ const AdminDashboard = ({ staff }) => {
 // --- Staff View ---
 const StaffDashboard = ({ staff, currentUser }) => {
     const [isSaleModalOpen, setSaleModalOpen] = useState(false);
+    const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
+    const { competitions } = useCompetitions();
 
     const selfProfile = staff.find(member => member.uid === currentUser.uid);
 
+    // Only competitions where user participates
+    const myCompetitions = competitions.filter(c => Array.isArray(c.participants) && selfProfile && c.participants.includes(selfProfile.id));
+    const selectedCompetition = myCompetitions.find(c => c.id === selectedCompetitionId) || null;
+
+    // Debug info for competitions and staff id (always visible for troubleshooting)
+    const debugInfo = selfProfile ? (
+        <div className="mt-4 p-2 bg-yellow-100 text-yellow-800 text-xs rounded">
+            <div><b>Debug info:</b></div>
+            <div>Your staff Firestore id: <code>{selfProfile.id}</code></div>
+            <div>Competitions and their participants:</div>
+            <ul className="list-disc ml-4">
+                {competitions.map(c => (
+                    <li key={c.id}><b>{c.title}</b>: [{(c.participants || []).join(', ')}]</li>
+                ))}
+            </ul>
+        </div>
+    ) : null;
+
     return (
         <div className="space-y-6">
+            {debugInfo}
             <header className="space-y-4">
-                <h2 className="text-2xl sm:text-3xl font-bold text-on-surface">Leaderboard</h2>
-                {selfProfile && (
-                    <button
-                        onClick={() => setSaleModalOpen(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-on-surface">Leaderboard</h2>
+                    {selfProfile && (
+                        <button
+                            onClick={() => setSaleModalOpen(true)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
+                        >
+                            <Send size={16} /><span>Send inn bilag</span>
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-sm text-on-surface-secondary">Konkurranse:</label>
+                    <select
+                        value={selectedCompetitionId}
+                        onChange={(e) => setSelectedCompetitionId(e.target.value)}
+                        className="px-3 py-2 bg-surface border border-gray-300 rounded-lg text-sm"
                     >
-                        <Send size={16} /><span>Send inn bilag</span>
-                    </button>
-                )}
+                        <option value="">Alle (global)</option>
+                        {myCompetitions.map(c => (
+                            <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                    </select>
+                </div>
             </header>
             <main>
-                {/* --- Pass the currentUser prop here --- */}
-                <StaffLeaderboard currentUser={currentUser} />
+                {!selectedCompetitionId && myCompetitions.length === 0 ? (
+                    <div className="text-center p-10 bg-gray-50 border border-gray-200 rounded-lg">
+                        Du er ikke med i noen konkurranser for øyeblikket. Leaderboard vises ikke.
+                    </div>
+                ) : (
+                    <StaffLeaderboard currentUser={currentUser} competition={selectedCompetition || undefined} forceCompetitionStars={true} />
+                )}
             </main>
             {selfProfile && (
                 <AddSaleModal
@@ -98,6 +170,7 @@ const StaffDashboard = ({ staff, currentUser }) => {
                     onClose={() => setSaleModalOpen(false)}
                     staffId={selfProfile.id}
                     staffName={selfProfile.name}
+                    competitions={myCompetitions}
                 />
             )}
         </div>

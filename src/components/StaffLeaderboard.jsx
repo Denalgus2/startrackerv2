@@ -1,12 +1,17 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Award, Star, TrendingUp, Users } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, Users, Timer } from 'lucide-react';
 import ProfileStatsModal from './ProfileStatsModal';
 
-// --- Receive currentUser as a prop ---
-function StaffLeaderboard({ currentUser }) {
+// Props:
+// - currentUser: auth user object
+// - competition: optional { id, title, endDate, participants }
+// If competition is provided, only participants are shown and sales are filtered by competitionId.
+function StaffLeaderboard({ currentUser, competition }) {
+
+    // Added prop: forceCompetitionStars (default false)
     const [staff, setStaff] = useState([]);
     const [salesData, setSalesData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,14 +19,31 @@ function StaffLeaderboard({ currentUser }) {
     const [isProfileStatsOpen, setProfileStatsOpen] = useState(false);
     const [showStarsPerShift, setShowStarsPerShift] = useState(false);
 
+    // Accept forceCompetitionStars prop
+    const participantSet = useMemo(() => new Set(competition?.participants || []), [competition]);
+    const showCountdown = Boolean(competition?.endDate?.toDate);
+
     useEffect(() => {
         const staffUnsub = onSnapshot(query(collection(db, 'staff')), (snapshot) => {
             const staffData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setStaff(staffData);
+            // If competition is set, limit to participants
+            setStaff(competition ? staffData.filter(s => participantSet.has(s.id)) : staffData);
         });
 
-        const salesUnsub = onSnapshot(query(collection(db, 'sales')), (snapshot) => {
-            const salesData = snapshot.docs.map(doc => doc.data());
+        // Always load sales by competition if forceCompetitionStars or competition is set
+        let salesQuery;
+        if (competition || (typeof forceCompetitionStars !== 'undefined' && forceCompetitionStars)) {
+            if (competition) {
+                salesQuery = query(collection(db, 'sales'), where('competitionId', '==', competition.id));
+            } else {
+                // If no competition selected, load all sales (global)
+                salesQuery = query(collection(db, 'sales'));
+            }
+        } else {
+            salesQuery = query(collection(db, 'sales'));
+        }
+        const salesUnsub = onSnapshot(salesQuery, (snapshot) => {
+            const salesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setSalesData(salesData);
             setLoading(false);
         });
@@ -30,20 +52,24 @@ function StaffLeaderboard({ currentUser }) {
             staffUnsub();
             salesUnsub();
         };
-    }, []);
+    }, [competition, participantSet]);
 
     const calculateStaffStats = () => {
         return staff.map(member => {
             const memberSales = salesData.filter(sale => sale.staffId === member.id);
             const totalSales = memberSales.length;
             const shifts = member.shifts || 0;
-            const totalStars = member.stars || 0;
+            // Always compute stars from salesData subset if forceCompetitionStars or competition is set
+            const totalStars = (typeof forceCompetitionStars !== 'undefined' && forceCompetitionStars) || competition
+                ? memberSales.reduce((sum, s) => sum + (s.stars || 0), 0)
+                : (member.stars || 0);
             const starsPerShift = shifts > 0 ? totalStars / shifts : 0;
 
             return {
                 ...member,
                 totalSales,
-                starsPerShift: Number(starsPerShift.toFixed(2))
+                starsPerShift: Number(starsPerShift.toFixed(2)),
+                stars: totalStars
             };
         }).sort((a, b) => {
             if (showStarsPerShift) {
@@ -52,7 +78,14 @@ function StaffLeaderboard({ currentUser }) {
                 if (b.shifts === 0) return -1;
                 return b.starsPerShift - a.starsPerShift;
             } else {
-                return (b.stars || 0) - (a.stars || 0);
+                // Always compare by computed total from sales subset if forceCompetitionStars or competition is set
+                const aStars = ((typeof forceCompetitionStars !== 'undefined' && forceCompetitionStars) || competition)
+                    ? salesData.filter(s => s.staffId === a.id).reduce((sum, s) => sum + (s.stars || 0), 0)
+                    : (a.stars || 0);
+                const bStars = ((typeof forceCompetitionStars !== 'undefined' && forceCompetitionStars) || competition)
+                    ? salesData.filter(s => s.staffId === b.id).reduce((sum, s) => sum + (s.stars || 0), 0)
+                    : (b.stars || 0);
+                return bStars - aStars;
             }
         });
     };
@@ -78,12 +111,21 @@ function StaffLeaderboard({ currentUser }) {
         setProfileStatsOpen(true);
     };
 
-    if (loading) {
-        return <div className="text-center p-10">Laster leaderboard...</div>;
-    }
+    if (loading) return <div className="text-center p-10">Laster leaderboard...</div>;
 
     return (
         <>
+            {competition && (
+                <div className="max-w-4xl mx-auto mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-between">
+                    <div>
+                        <div className="text-sm text-blue-800">Konkurranse</div>
+                        <div className="text-base font-semibold text-blue-900">{competition.title}</div>
+                    </div>
+                    {showCountdown && (
+                        <Countdown endDate={competition.endDate.toDate()} />
+                    )}
+                </div>
+            )}
             <div className="flex justify-center mb-6">
                 <div className="bg-gray-100 rounded-full p-1 flex items-center gap-3 border border-gray-200 shadow-sm">
                     <button
@@ -139,7 +181,11 @@ function StaffLeaderboard({ currentUser }) {
                             <div className="text-right">
                                 <div className="flex items-center justify-end gap-1 text-2xl font-bold text-primary mb-1">
                                     <Star size={24} />
-                                    {showStarsPerShift ? member.starsPerShift : (member.stars || 0)}
+                                    {showStarsPerShift ? member.starsPerShift : (
+                                        competition
+                                            ? salesData.filter(s => s.staffId === member.id).reduce((sum, s) => sum + (s.stars || 0), 0)
+                                            : (member.stars || 0)
+                                    )}
                                 </div>
                                 <div className="text-xs text-on-surface-secondary">
                                     {showStarsPerShift ? 'Stjerner / vakt' : 'Totalt'}
@@ -160,3 +206,23 @@ function StaffLeaderboard({ currentUser }) {
 }
 
 export default StaffLeaderboard;
+
+function Countdown({ endDate }) {
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(t);
+    }, []);
+    const diff = Math.max(0, endDate.getTime() - now.getTime());
+    const seconds = Math.floor(diff / 1000) % 60;
+    const minutes = Math.floor(diff / (1000 * 60)) % 60;
+    const hours = Math.floor(diff / (1000 * 60 * 60)) % 24;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const ended = diff <= 0;
+    return (
+        <div className={`flex items-center gap-2 text-sm font-medium ${ended ? 'text-gray-600' : 'text-blue-900'}`} title={endDate.toLocaleString('no-NO')}>
+            <Timer size={16} />
+            {ended ? 'Avsluttet' : `${days}d ${hours}t ${minutes}m ${seconds}s`}
+        </div>
+    );
+}

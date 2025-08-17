@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, increment, deleteDoc, addDoc, serverTimestamp, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, increment, deleteDoc, addDoc, serverTimestamp, getDocs, orderBy, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, CheckCircle, X, Users, TrendingUp, Calendar, Settings, Shield, Star, Award, AlertTriangle, Eye, Edit3, Trash2, BarChart3, Clock } from 'lucide-react';
@@ -7,6 +7,8 @@ import EditBilagRequestModal from '../components/EditBilagRequestModal';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from '../components/NotificationModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCompetitions } from '../hooks/useCompetitions';
+import { fetchAllExportData, exportToJson } from '../utils/exportData';
 
 function Moderator() {
     const { userRole, currentUser } = useAuth();
@@ -21,6 +23,21 @@ function Moderator() {
     const [loading, setLoading] = useState(true);
     const [editingRequest, setEditingRequest] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const { competitions } = useCompetitions();
+    const [exporting, setExporting] = useState(false);
+
+    async function handleExport() {
+        setExporting(true);
+        try {
+            const data = await fetchAllExportData();
+            exportToJson(data);
+        } catch (e) {
+            alert('Eksport feilet: ' + e.message);
+        } finally {
+            setExporting(false);
+        }
+    }
+    const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
 
     // Permissions check
     if (userRole !== 'moderator' && userRole !== 'admin') {
@@ -105,6 +122,7 @@ function Moderator() {
                         stars: request.stars,
                         timestamp: serverTimestamp(),
                         approvedBy: userRole,
+                        ...(request.competitionId ? { competitionId: request.competitionId } : {}),
                         ...(request.forsikringAmount && { forsikringAmount: request.forsikringAmount })
                     });
 
@@ -270,6 +288,26 @@ function Moderator() {
                                 <h1 className="text-2xl font-bold text-white">Moderator Dashboard</h1>
                                 <p className="text-purple-100">Administrer ansatte, salg og systemaktivitet</p>
                             </div>
+                            <div className="ml-auto flex items-center gap-2">
+                                <button
+                                    onClick={handleExport}
+                                    disabled={exporting}
+                                    className="px-3 py-1 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-60"
+                                >
+                                    {exporting ? 'Eksporterer...' : 'Eksporter Data'}
+                                </button>
+                                <label className="text-white/80 text-sm">Konkurranse:</label>
+                                <select
+                                    value={selectedCompetitionId}
+                                    onChange={(e) => setSelectedCompetitionId(e.target.value)}
+                                    className="px-2 py-1 rounded bg-white text-gray-800 text-sm"
+                                >
+                                    <option value="">Alle</option>
+                                    {competitions.map(c => (
+                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -305,26 +343,30 @@ function Moderator() {
                     {/* Tab Content */}
                     <div className="p-6">
                         <AnimatePresence mode="wait">
-                            {activeTab === 'requests' && (
+                {activeTab === 'requests' && (
                                 <BilagRequestsTab
-                                    requests={requests}
+                                    requests={selectedCompetitionId ? requests.filter(r => r.competitionId === selectedCompetitionId) : requests}
                                     handleApprove={handleApprove}
                                     handleDecline={handleDecline}
                                     openEditModal={openEditModal}
+                                    selectedCompetitionId={selectedCompetitionId}
+                                    competitions={competitions}
                                 />
                             )}
 
-                            {activeTab === 'staff' && (
+                {activeTab === 'staff' && (
                                 <StaffManagementTab
-                                    staff={staff}
+                    staff={selectedCompetitionId ? staff.filter(s => (competitions.find(c => c.id === selectedCompetitionId)?.participants || []).includes(s.id)) : staff}
                                     adjustStaffStars={adjustStaffStars}
                                     resetStaffStars={resetStaffStars}
+                    competitions={competitions}
+                    selectedCompetitionId={selectedCompetitionId}
                                 />
                             )}
 
-                            {activeTab === 'sales' && (
+                {activeTab === 'sales' && (
                                 <SalesActivityTab
-                                    sales={sales}
+                    sales={selectedCompetitionId ? sales.filter(s => s.competitionId === selectedCompetitionId) : sales}
                                     deleteSale={deleteSale}
                                 />
                             )}
@@ -371,7 +413,7 @@ function Moderator() {
 }
 
 // Bilag Requests Tab Component
-function BilagRequestsTab({ requests, handleApprove, handleDecline, openEditModal }) {
+function BilagRequestsTab({ requests, handleApprove, handleDecline, openEditModal, selectedCompetitionId, competitions = [] }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -411,6 +453,11 @@ function BilagRequestsTab({ requests, handleApprove, handleDecline, openEditModa
                                         <h3 className="font-semibold text-gray-900">{req.staffName}</h3>
                                         <p className="text-sm text-gray-600">Bilag: {req.bilag}</p>
                                         <p className="text-xs text-gray-500">{req.category} - {req.service}</p>
+                                        {req.competitionId && (
+                                            <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                                                {(competitions.find(c => c.id === req.competitionId)?.title) || 'Konkurranse'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -457,10 +504,11 @@ function BilagRequestsTab({ requests, handleApprove, handleDecline, openEditModa
 }
 
 // Staff Management Tab Component
-function StaffManagementTab({ staff, adjustStaffStars, resetStaffStars }) {
+function StaffManagementTab({ staff, adjustStaffStars, resetStaffStars, competitions = [], selectedCompetitionId }) {
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [adjustmentAmount, setAdjustmentAmount] = useState('');
     const [adjustmentReason, setAdjustmentReason] = useState('');
+    const selectedCompetition = competitions.find(c => c.id === selectedCompetitionId);
 
     const handleStarAdjustment = (staffId, amount) => {
         const reason = adjustmentReason.trim() || 'Moderator justering';
@@ -530,6 +578,31 @@ function StaffManagementTab({ staff, adjustStaffStars, resetStaffStars }) {
                                     >
                                         Nullstill
                                     </button>
+                                    {selectedCompetition && (
+                                        selectedCompetition.participants?.includes(member.id) ? (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await updateDoc(doc(db, 'competitions', selectedCompetition.id), { participants: arrayRemove(member.id) });
+                                                    } catch (e) { console.error(e); }
+                                                }}
+                                                className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                            >
+                                                Fjern fra konk.
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await updateDoc(doc(db, 'competitions', selectedCompetition.id), { participants: arrayUnion(member.id) });
+                                                    } catch (e) { console.error(e); }
+                                                }}
+                                                className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                                            >
+                                                Legg til i konk.
+                                            </button>
+                                        )
+                                    )}
                                 </div>
                             </div>
                         </div>
