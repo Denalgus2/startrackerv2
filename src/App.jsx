@@ -56,7 +56,7 @@ function AdminRoute({ children }) {
 
 function App() {
     return (
-    <Router>
+    <Router basename="/startrackerv2">
             <ErrorBoundary>
                 <Routes>
                     {/* Public Routes */}
