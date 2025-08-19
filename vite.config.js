@@ -9,7 +9,7 @@ export default defineConfig(() => ({
         tailwindcss(),
     ],
     // For custom domains, base should be '/'
-    base: '/',
+    base: '/startrackerv2',
     build: {
         outDir: 'dist',
         assetsDir: 'assets',
