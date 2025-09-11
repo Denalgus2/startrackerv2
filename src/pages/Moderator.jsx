@@ -111,6 +111,10 @@ function Moderator() {
                             timestamp: serverTimestamp(),
                             approvedBy: userRole,
                         });
+
+                        // Also award stars for recurring insurance
+                        const staffRef = doc(db, 'staff', request.staffId);
+                        await updateDoc(staffRef, { stars: increment(request.stars) });
                     } else {
                         // Handle one-time sales
                         await addDoc(collection(db, 'sales'), {
