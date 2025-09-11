@@ -90,33 +90,51 @@ function Moderator() {
     }, []);
 
     const handleApprove = async (request) => {
+        const message = request.category === 'Forsikring' && request.type === 'Recurring'
+            ? `Godkjenne OG SETTE SOM GJENTAKENDE bilag ${request.bilag} for ${request.staffName}?`
+            : `Godkjenne bilag ${request.bilag} for ${request.staffName}? Dette vil tildele ${request.stars} stjerner.`;
+
         showConfirmation(
             'Bekreft godkjenning',
-            `Godkjenne bilag ${request.bilag} for ${request.staffName}? Dette vil tildele ${request.stars} stjerner.`,
+            message,
             async () => {
                 try {
-                    // Add to sales collection
-                    await addDoc(collection(db, 'sales'), {
-                        staffId: request.staffId,
-                        staffName: request.staffName,
-                        bilag: request.bilag,
-                        category: request.category,
-                        service: request.service,
-                        stars: request.stars,
-                        timestamp: serverTimestamp(),
-                        approvedBy: userRole,
-                        ...(request.forsikringAmount && { forsikringAmount: request.forsikringAmount })
-                    });
+                    if (request.category === 'Forsikring' && request.type === 'Recurring') {
+                        // Handle recurring insurance
+                        await addDoc(collection(db, 'recurringForsikringer'), {
+                            staffId: request.staffId,
+                            staffName: request.staffName,
+                            bilag: request.bilag,
+                            category: request.category,
+                            service: request.service,
+                            stars: request.stars,
+                            timestamp: serverTimestamp(),
+                            approvedBy: userRole,
+                        });
+                    } else {
+                        // Handle one-time sales
+                        await addDoc(collection(db, 'sales'), {
+                            staffId: request.staffId,
+                            staffName: request.staffName,
+                            bilag: request.bilag,
+                            category: request.category,
+                            service: request.service,
+                            stars: request.stars,
+                            timestamp: serverTimestamp(),
+                            approvedBy: userRole,
+                            ...(request.forsikringAmount && { forsikringAmount: request.forsikringAmount })
+                        });
 
-                    // Update staff stars
-                    const staffRef = doc(db, 'staff', request.staffId);
-                    await updateDoc(staffRef, { stars: increment(request.stars) });
+                        // Update staff stars
+                        const staffRef = doc(db, 'staff', request.staffId);
+                        await updateDoc(staffRef, { stars: increment(request.stars) });
+                    }
 
-                    // Delete the request (no need to update status first since we're deleting it)
+                    // Delete the request
                     const requestRef = doc(db, 'bilagRequests', request.id);
                     await deleteDoc(requestRef);
 
-                    showSuccess('Bilag godkjent', `Bilag ${request.bilag} er godkjent og ${request.stars} stjerner er tildelt ${request.staffName}.`);
+                    showSuccess('Bilag godkjent', `Bilag ${request.bilag} er godkjent.`);
                 } catch (error) {
                     console.error("Error approving request:", error);
                     showError('Feil', 'En feil oppstod under godkjenning.');

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
-import { X, Save, FileText, ShoppingBag, Tag } from 'lucide-react';
+import { X, Save, FileText, ShoppingBag, Tag, Repeat } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from './NotificationModal';
@@ -10,16 +10,17 @@ import NotificationModal from './NotificationModal';
 function EditBilagRequestModal({ isOpen, onClose, request }) {
     const { notification, showSuccess, showError, hideNotification } = useNotification();
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
+    const [insuranceType, setInsuranceType] = useState('One-time');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        // When the modal opens, populate the form with the request's current data
         if (request) {
             setFormData({
                 bilag: request.bilag || '',
                 category: request.category || '',
                 service: request.service || '',
             });
+            setInsuranceType(request.type || 'One-time');
         }
     }, [request]);
 
@@ -28,14 +29,16 @@ function EditBilagRequestModal({ isOpen, onClose, request }) {
         setLoading(true);
         try {
             const requestRef = doc(db, 'bilagRequests', request.id);
-
-            // Calculate new stars based on the potentially edited service
             const newStars = serviceCategories[formData.category]?.[formData.service] || 0;
 
             const updatedData = {
                 ...formData,
-                stars: newStars, // Update stars based on the new service
+                stars: newStars,
             };
+
+            if (formData.category === 'Forsikring') {
+                updatedData.type = insuranceType;
+            }
 
             await updateDoc(requestRef, updatedData);
             onClose();
@@ -95,6 +98,15 @@ function EditBilagRequestModal({ isOpen, onClose, request }) {
                                         <select required value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg">
                                             <option value="">Velg tjeneste...</option>
                                             {Object.keys(serviceCategories[formData.category]).map(item => <option key={item} value={item}>{item}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+                                {formData.category === 'Forsikring' && (
+                                    <div className="relative">
+                                        <Repeat className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                        <select value={insuranceType} onChange={e => setInsuranceType(e.target.value)} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg">
+                                            <option value="One-time">One-time</option>
+                                            <option value="Recurring">Recurring</option>
                                         </select>
                                     </div>
                                 )}
