@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
-import { X, Star, FileText, ShoppingBag, Tag } from 'lucide-react';
+import { X, Star, FileText, ShoppingBag, Tag, Repeat } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { useServices } from '../hooks/useServices';
@@ -14,6 +14,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     const { serviceCategories, loading: servicesLoading } = useServices();
     const [formData, setFormData] = useState({ bilag: '', category: '', service: '' });
     const [forsikringAmount, setForsikringAmount] = useState('');
+    const [insuranceType, setInsuranceType] = useState('One-time');
     const [existingSales, setExistingSales] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -155,7 +156,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
         const multiplierInfo = getMultiplierProgress();
         const starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
-        
+
         if (starsToAdd === undefined || starsToAdd === null || isNaN(starsToAdd)) {
             showError('Feil', 'Kunne ikke beregne stjerner for denne tjenesten. Kontakt administrator.');
             setLoading(false);
@@ -163,32 +164,46 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         }
 
         try {
+            const isRecurringInsurance = category === 'Forsikring' && insuranceType === 'Recurring';
+
             // Auto-approve for moderators and admins
             if (userRole === 'moderator' || userRole === 'admin') {
-                // Directly add to sales collection
-                await addDoc(collection(db, 'sales'), {
-                    staffId,
-                    staffName,
-                    bilag,
-                    category,
-                    service,
-                    stars: starsToAdd,
-                    timestamp: serverTimestamp(),
-                    approvedBy: 'auto-approved',
-                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
-                });
+                if (isRecurringInsurance) {
+                    await addDoc(collection(db, 'recurringForsikringer'), {
+                        staffId,
+                        staffName,
+                        bilag,
+                        category,
+                        service,
+                        stars: starsToAdd,
+                        timestamp: serverTimestamp(),
+                        approvedBy: 'auto-approved',
+                        forsikringAmount: parseFloat(forsikringAmount)
+                    });
 
-                // Update staff total stars
-                const staffRef = doc(db, 'staff', staffId);
-                await updateDoc(staffRef, { stars: increment(starsToAdd) });
+                    const staffRef = doc(db, 'staff', staffId);
+                    await updateDoc(staffRef, { stars: increment(starsToAdd) });
+                    showSuccess('Gjentakende forsikring registrert', `Bilag ${bilag} er registrert som gjentakende.`);
+                } else {
+                    await addDoc(collection(db, 'sales'), {
+                        staffId,
+                        staffName,
+                        bilag,
+                        category,
+                        service,
+                        stars: starsToAdd,
+                        timestamp: serverTimestamp(),
+                        approvedBy: 'auto-approved',
+                        ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
+                    });
 
-                setFormData({ bilag: '', category: '', service: '' });
-                setForsikringAmount('');
-                onClose();
-                showSuccess('Bilag registrert', `Bilag ${bilag} er automatisk godkjent og lagt til for ${staffName}!`);
+                    const staffRef = doc(db, 'staff', staffId);
+                    await updateDoc(staffRef, { stars: increment(starsToAdd) });
+                    showSuccess('Bilag registrert', `Bilag ${bilag} er automatisk godkjent og lagt til for ${staffName}!`);
+                }
             } else {
                 // For regular staff, create pending request
-                await addDoc(collection(db, 'bilagRequests'), {
+                const requestData = {
                     staffId,
                     staffName,
                     bilag,
@@ -198,13 +213,20 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     status: 'pending',
                     requestedAt: serverTimestamp(),
                     ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
-                });
+                };
 
-                setFormData({ bilag: '', category: '', service: '' });
-                setForsikringAmount('');
-                onClose();
+                if (isRecurringInsurance) {
+                    requestData.type = 'Recurring';
+                }
+
+                await addDoc(collection(db, 'bilagRequests'), requestData);
                 showSuccess('Forespørsel sendt', `Forespørsel om bilag ${bilag} er sendt til godkjenning!`);
             }
+
+            setFormData({ bilag: '', category: '', service: '' });
+            setForsikringAmount('');
+            setInsuranceType('One-time');
+            onClose();
 
         } catch (error) {
             console.error("Error submitting bilag request:", error);
@@ -269,18 +291,27 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                     </div>
 
                                     {formData.category === 'Forsikring' ? (
-                                        <div className="relative">
-                                            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                            <input
-                                                type="number" required
-                                                value={forsikringAmount}
-                                                onChange={e => setForsikringAmount(e.target.value)}
-                                                placeholder="Forsikringsbeløp (kr)"
-                                                min="0"
-                                                step="1"
-                                                className="w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
-                                            />
-                                        </div>
+                                        <>
+                                            <div className="relative">
+                                                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                                <input
+                                                    type="number" required
+                                                    value={forsikringAmount}
+                                                    onChange={e => setForsikringAmount(e.target.value)}
+                                                    placeholder="Forsikringsbeløp (kr)"
+                                                    min="0"
+                                                    step="1"
+                                                    className="w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
+                                                />
+                                            </div>
+                                            <div className="relative">
+                                                <Repeat className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                                <select value={insuranceType} onChange={e => setInsuranceType(e.target.value)} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
+                                                    <option value="One-time">One-time</option>
+                                                    <option value="Recurring">Recurring</option>
+                                                </select>
+                                            </div>
+                                        </>
                                     ) : formData.category && serviceCategories[formData.category] && (
                                         <div className="relative">
                                             <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
