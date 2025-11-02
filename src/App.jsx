@@ -11,6 +11,7 @@ import Admin from './pages/Admin.jsx';
 import Moderator from './pages/Moderator.jsx';
 import ModeratorSettings from './pages/ModeratorSettings.jsx';
 import PendingApproval from './pages/PendingApproval.jsx';
+import NewWebsitePopup from './components/NewWebsitePopup.jsx';
 
 // Protects routes that require a logged-in user (basic)
 function PrivateRoute({ children }) {
@@ -58,6 +59,7 @@ function App() {
     return (
     <Router basename="/startrackerv2">
             <ErrorBoundary>
+                <NewWebsitePopup />
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
