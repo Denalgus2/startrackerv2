@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion } from 'framer-motion';
-import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck, Trophy, Send } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, Upload, ClipboardCheck, Trophy, Send, Calendar, RotateCcw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 import StaffCard from '../components/StaffCard';
 import AddStaffModal from '../components/AddStaffModal';
 import ImportSalesModal from '../components/ImportSalesModal';
 import WeeklyReviewModal from '../components/WeeklyReviewModal';
+import MonthlyReviewModal from '../components/MonthlyReviewModal';
+import ResetMonthModal from '../components/ResetMonthModal';
 import LeaderboardModal from '../components/LeaderboardModal';
 import StaffLeaderboard from '../components/StaffLeaderboard';
 import AddSaleModal from '../components/AddSaleModal';
@@ -18,6 +20,8 @@ const AdminDashboard = ({ staff }) => {
     const [isStaffModalOpen, setStaffModalOpen] = useState(false);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
     const [isReviewModalOpen, setReviewModalOpen] = useState(false);
+    const [isMonthlyReviewModalOpen, setMonthlyReviewModalOpen] = useState(false);
+    const [isResetMonthModalOpen, setResetMonthModalOpen] = useState(false);
     const [isLeaderboardOpen, setLeaderboardOpen] = useState(false);
     const [areStarsHidden, setAreStarsHidden] = useState(false);
 
@@ -44,7 +48,13 @@ const AdminDashboard = ({ staff }) => {
                         <Upload size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Importer</span>
                     </button>
                     <button onClick={() => setReviewModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-[#009A44] text-on-surface-secondary hover:bg-green-50 transition-colors">
-                        <ClipboardCheck size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Gjennomgang</span>
+                        <ClipboardCheck size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Ukentlig</span>
+                    </button>
+                    <button onClick={() => setMonthlyReviewModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-blue-500 text-blue-600 hover:bg-blue-50 transition-colors">
+                        <Calendar size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Månedlig</span>
+                    </button>
+                    <button onClick={() => setResetMonthModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm bg-surface border-2 border-red-500 text-red-600 hover:bg-red-50 transition-colors">
+                        <RotateCcw size={14} className="sm:w-4 sm:h-4"/><span className="hidden sm:inline">Nullstill måned</span>
                     </button>
                     <button onClick={() => setStaffModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
                         <UserPlus size={14} className="sm:w-4 sm:h-4"/><span>Legg til ansatt</span>
@@ -63,6 +73,8 @@ const AdminDashboard = ({ staff }) => {
             <AddStaffModal isOpen={isStaffModalOpen} onClose={() => setStaffModalOpen(false)} />
             <ImportSalesModal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} staffList={staff} />
             <WeeklyReviewModal isOpen={isReviewModalOpen} onClose={() => setReviewModalOpen(false)} staffList={staff} />
+            <MonthlyReviewModal isOpen={isMonthlyReviewModalOpen} onClose={() => setMonthlyReviewModalOpen(false)} staffList={staff} />
+            <ResetMonthModal isOpen={isResetMonthModalOpen} onClose={() => setResetMonthModalOpen(false)} />
             <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
         </div>
     );
