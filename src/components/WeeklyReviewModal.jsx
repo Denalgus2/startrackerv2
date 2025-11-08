@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Percent, CheckSquare, Calendar } from 'lucide-react';
+import { X, Percent, CheckSquare, Calendar, TrendingUp, DollarSign, Users, Clock } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, updateDoc, doc, increment } from "firebase/firestore";
 import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
@@ -92,14 +92,74 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Calculate and award stars for each staff member
+            // First pass: Calculate supermargin and CS per time to find highest values
+            let highestSupermargin = 0;
+            let highestSupermarginStaffId = null;
+            let highestCSPerTime = 0;
+            let highestCSPerTimeStaffId = null;
+            let highestKundeklubbAntall = 0;
+            let highestKundeklubbAntallStaffId = null;
+
+            for (const [staffId, data] of Object.entries(weeklyData)) {
+                // Find highest supermargin (>25%)
+                if (data.supermargin) {
+                    const supermargin = parseFloat(data.supermargin);
+                    if (supermargin > 25 && supermargin > highestSupermargin) {
+                        highestSupermargin = supermargin;
+                        highestSupermarginStaffId = staffId;
+                    }
+                }
+
+                // Find highest CS per time (>25 NOK)
+                if (data.csPerTime) {
+                    const csPerTime = parseFloat(data.csPerTime);
+                    if (csPerTime > 25 && csPerTime > highestCSPerTime) {
+                        highestCSPerTime = csPerTime;
+                        highestCSPerTimeStaffId = staffId;
+                    }
+                }
+
+                // Find highest Kundeklubb antall
+                if (data.kundeklubbAntall) {
+                    const antall = parseInt(data.kundeklubbAntall);
+                    if (antall > highestKundeklubbAntall) {
+                        highestKundeklubbAntall = antall;
+                        highestKundeklubbAntallStaffId = staffId;
+                    }
+                }
+            }
+
+            // Second pass: Calculate and award stars for each staff member
             for (const [staffId, data] of Object.entries(weeklyData)) {
                 let starsToAward = 0;
                 const staffMember = staffList.find(s => s.id === staffId);
 
                 if (!staffMember) continue;
 
-                // Calculate Kundeklubb stars
+                // Calculate Supermargin stars (>25% = 5 stars, highest = 6 stars)
+                if (data.supermargin) {
+                    const supermargin = parseFloat(data.supermargin);
+                    if (supermargin > 25) {
+                        const stars = (staffId === highestSupermarginStaffId) ? 6 : 5;
+                        starsToAward += stars;
+                    }
+                }
+
+                // Calculate CS per time stars (>25 NOK = 5 stars, highest = 6 stars)
+                if (data.csPerTime) {
+                    const csPerTime = parseFloat(data.csPerTime);
+                    if (csPerTime > 25) {
+                        const stars = (staffId === highestCSPerTimeStaffId) ? 6 : 5;
+                        starsToAward += stars;
+                    }
+                }
+
+                // Calculate Kundeklubb antall stars (highest gets 5 stars)
+                if (data.kundeklubbAntall && staffId === highestKundeklubbAntallStaffId) {
+                    starsToAward += 5;
+                }
+
+                // Calculate Kundeklubb percent stars (existing logic - keep for backward compatibility)
                 if (data.kundeklubb) {
                     const percentage = parseInt(data.kundeklubb);
                     let serviceType = '';
@@ -134,7 +194,66 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                     // Create sales records for tracking
                     const salesPromises = [];
 
-                    // Add kundeklubb sale if applicable
+                    // Add supermargin sale if applicable
+                    if (data.supermargin) {
+                        const supermargin = parseFloat(data.supermargin);
+                        if (supermargin > 25) {
+                            const stars = (staffId === highestSupermarginStaffId) ? 6 : 5;
+                            salesPromises.push(addDoc(collection(db, 'sales'), {
+                                staffId,
+                                staffName: staffMember.name,
+                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-SUPERMARGIN-${supermargin}%`,
+                                category: 'Annet',
+                                service: `Supermargin ${supermargin}%`,
+                                stars: stars,
+                                timestamp: serverTimestamp(),
+                                weeklyReview: true,
+                                reviewWeek: selectedWeek.weekNumber,
+                                reviewYear: selectedWeek.year,
+                                isHighest: staffId === highestSupermarginStaffId
+                            }));
+                        }
+                    }
+
+                    // Add CS per time sale if applicable
+                    if (data.csPerTime) {
+                        const csPerTime = parseFloat(data.csPerTime);
+                        if (csPerTime > 25) {
+                            const stars = (staffId === highestCSPerTimeStaffId) ? 6 : 5;
+                            salesPromises.push(addDoc(collection(db, 'sales'), {
+                                staffId,
+                                staffName: staffMember.name,
+                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-CS-PER-TIME-${csPerTime}kr`,
+                                category: 'Annet',
+                                service: `CS per time ${csPerTime}kr`,
+                                stars: stars,
+                                timestamp: serverTimestamp(),
+                                weeklyReview: true,
+                                reviewWeek: selectedWeek.weekNumber,
+                                reviewYear: selectedWeek.year,
+                                isHighest: staffId === highestCSPerTimeStaffId
+                            }));
+                        }
+                    }
+
+                    // Add Kundeklubb antall sale if applicable (highest gets 5 stars)
+                    if (data.kundeklubbAntall && staffId === highestKundeklubbAntallStaffId) {
+                        salesPromises.push(addDoc(collection(db, 'sales'), {
+                            staffId,
+                            staffName: staffMember.name,
+                            bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNDEKLUBB-ANTALL-${data.kundeklubbAntall}`,
+                            category: 'Kundeklubb',
+                            service: 'Høyest antall',
+                            stars: 5,
+                            timestamp: serverTimestamp(),
+                            weeklyReview: true,
+                            reviewWeek: selectedWeek.weekNumber,
+                            reviewYear: selectedWeek.year,
+                            isHighest: true
+                        }));
+                    }
+
+                    // Add kundeklubb percent sale if applicable (existing logic)
                     if (data.kundeklubb) {
                         const percentage = parseInt(data.kundeklubb);
                         let serviceType = '';
@@ -281,7 +400,62 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Supermargin %
+                                                <span className="text-xs text-gray-500 ml-2">(>25% = 5⭐, høyest = 6⭐)</span>
+                                            </label>
+                                            <div className="relative">
+                                                <TrendingUp size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="0.1"
+                                                    placeholder="0-100"
+                                                    value={weeklyData[staff.id]?.supermargin || ''}
+                                                    onChange={(e) => handleDataChange(staff.id, 'supermargin', e.target.value)}
+                                                    className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                CS per time (kr)
+                                                <span className="text-xs text-gray-500 ml-2">(>25kr = 5⭐, høyest = 6⭐)</span>
+                                            </label>
+                                            <div className="relative">
+                                                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.1"
+                                                    placeholder="0"
+                                                    value={weeklyData[staff.id]?.csPerTime || ''}
+                                                    onChange={(e) => handleDataChange(staff.id, 'csPerTime', e.target.value)}
+                                                    className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Kundeklubb Antall
+                                                <span className="text-xs text-gray-500 ml-2">(høyest = 5⭐)</span>
+                                            </label>
+                                            <div className="relative">
+                                                <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    value={weeklyData[staff.id]?.kundeklubbAntall || ''}
+                                                    onChange={(e) => handleDataChange(staff.id, 'kundeklubbAntall', e.target.value)}
+                                                    className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="relative">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Kundeklubb %
+                                                <span className="text-xs text-gray-500 ml-2">(eksisterende system)</span>
                                             </label>
                                             <div className="relative">
                                                 <Percent size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -298,7 +472,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Kunnskap Sjekkliste (5 ⭐)
+                                                Kunnskap Sjekkliste (3 ⭐)
                                             </label>
                                             <div className="flex items-center gap-2 py-2">
                                                 <CheckSquare size={16} className="text-gray-400"/>

@@ -23,13 +23,32 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         cat => cat !== 'Kundeklubb' && cat !== 'Annet'
     );
 
-    const getForsikringService = (amount) => {
+    // Calculate stars for recurring forsikring based on amount
+    const getRecurringForsikringStars = (amount) => {
+        const numAmount = parseFloat(amount);
+        if (!numAmount || isNaN(numAmount)) return 0;
+        
+        if (numAmount < 100) return 2;
+        if (numAmount >= 100 && numAmount <= 299) return 3;
+        if (numAmount >= 300) return 4;
+        return 0;
+    };
+
+    const getForsikringService = (amount, isRecurring = false) => {
         const numAmount = parseFloat(amount);
         if (!numAmount || !serviceCategories.Forsikring) {
             return null;
         }
         
-        // Find matching service based on amount ranges in the configured services
+        // For recurring, return a service name for tracking, but stars are calculated separately
+        if (isRecurring) {
+            if (numAmount < 100) return 'Gjentakende - Under 100kr';
+            if (numAmount >= 100 && numAmount <= 299) return 'Gjentakende - 100-299kr';
+            if (numAmount >= 300) return 'Gjentakende - 300kr+';
+            return 'Gjentakende - Ukjent';
+        }
+        
+        // Find matching service based on amount ranges in the configured services (for one-time)
         const forsikringServices = serviceCategories.Forsikring;
         
         for (const [serviceName, serviceData] of Object.entries(forsikringServices)) {
@@ -91,10 +110,10 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
     useEffect(() => {
         if (formData.category === 'Forsikring') {
-            const service = getForsikringService(forsikringAmount);
+            const service = getForsikringService(forsikringAmount, insuranceType === 'Recurring');
             setFormData(prev => ({ ...prev, service: service }));
         }
-    }, [forsikringAmount, formData.category, serviceCategories]);
+    }, [forsikringAmount, formData.category, insuranceType, serviceCategories]);
 
     useEffect(() => {
         if (isOpen && staffId) {
@@ -109,7 +128,19 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     }, [isOpen, staffId]);
 
     const getMultiplierProgress = () => {
-        if (!formData.category || !formData.service || !serviceCategories[formData.category]) {
+        if (!formData.category || !formData.service) {
+            return null;
+        }
+        
+        // For recurring forsikring, calculate stars directly based on amount (no multipliers)
+        if (formData.category === 'Forsikring' && insuranceType === 'Recurring') {
+            const starsEarned = getRecurringForsikringStars(forsikringAmount);
+            if (starsEarned === 0) return null;
+            return { starsEarned, isMultiplier: false };
+        }
+        
+        // For one-time forsikring and other categories, use the standard multiplier logic
+        if (!serviceCategories[formData.category]) {
             return null;
         }
         
@@ -145,7 +176,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         let { bilag, category, service } = formData;
 
         if (category === 'Forsikring') {
-            service = getForsikringService(forsikringAmount);
+            service = getForsikringService(forsikringAmount, insuranceType === 'Recurring');
         }
 
         if (!staffId || !bilag || !category || !service) {
@@ -154,8 +185,14 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             return;
         }
 
-        const multiplierInfo = getMultiplierProgress();
-        const starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
+        // Calculate stars - for recurring, use direct calculation; otherwise use multiplier logic
+        let starsToAdd = 0;
+        if (category === 'Forsikring' && insuranceType === 'Recurring') {
+            starsToAdd = getRecurringForsikringStars(forsikringAmount);
+        } else {
+            const multiplierInfo = getMultiplierProgress();
+            starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
+        }
 
         if (starsToAdd === undefined || starsToAdd === null || isNaN(starsToAdd)) {
             showError('Feil', 'Kunne ikke beregne stjerner for denne tjenesten. Kontakt administrator.');
@@ -178,7 +215,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                         stars: starsToAdd,
                         timestamp: serverTimestamp(),
                         approvedBy: 'auto-approved',
-                        forsikringAmount: parseFloat(forsikringAmount)
+                        forsikringAmount: parseFloat(forsikringAmount),
+                        insuranceType: 'Recurring'
                     });
 
                     const staffRef = doc(db, 'staff', staffId);
@@ -194,7 +232,10 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                         stars: starsToAdd,
                         timestamp: serverTimestamp(),
                         approvedBy: 'auto-approved',
-                        ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
+                        ...(category === 'Forsikring' && { 
+                            forsikringAmount: parseFloat(forsikringAmount),
+                            insuranceType: 'One-time'
+                        })
                     });
 
                     const staffRef = doc(db, 'staff', staffId);
@@ -212,7 +253,10 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     stars: starsToAdd,
                     status: 'pending',
                     requestedAt: serverTimestamp(),
-                    ...(category === 'Forsikring' && { forsikringAmount: parseFloat(forsikringAmount) })
+                    ...(category === 'Forsikring' && { 
+                        forsikringAmount: parseFloat(forsikringAmount),
+                        insuranceType: insuranceType
+                    })
                 };
 
                 if (isRecurringInsurance) {
@@ -284,6 +328,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                         <select required value={formData.category} onChange={e => {
                                             setFormData({...formData, category: e.target.value, service: ''});
                                             setForsikringAmount('');
+                                            setInsuranceType('One-time');
                                         }} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
                                             <option value="">Velg kategori...</option>
                                             {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -304,12 +349,43 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                                     className="w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all"
                                                 />
                                             </div>
-                                            <div className="relative">
-                                                <Repeat className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                                <select value={insuranceType} onChange={e => setInsuranceType(e.target.value)} className="w-full pl-10 pr-3 py-3 appearance-none bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-[#009A44] outline-none transition-all">
-                                                    <option value="One-time">One-time</option>
-                                                    <option value="Recurring">Recurring</option>
-                                                </select>
+                                            <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                                                <Repeat className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                                <div className="flex-1">
+                                                    <label className="text-sm font-medium text-gray-700 mb-1 block">Type forsikring:</label>
+                                                    <div className="flex items-center gap-4">
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input
+                                                                type="radio"
+                                                                name="insuranceType"
+                                                                value="One-time"
+                                                                checked={insuranceType === 'One-time'}
+                                                                onChange={e => setInsuranceType(e.target.value)}
+                                                                className="w-4 h-4 text-[#009A44] focus:ring-[#009A44]"
+                                                            />
+                                                            <span className="text-sm text-gray-700">Engang</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input
+                                                                type="radio"
+                                                                name="insuranceType"
+                                                                value="Recurring"
+                                                                checked={insuranceType === 'Recurring'}
+                                                                onChange={e => setInsuranceType(e.target.value)}
+                                                                className="w-4 h-4 text-[#009A44] focus:ring-[#009A44]"
+                                                            />
+                                                            <span className="text-sm text-gray-700">Gjentakende</span>
+                                                        </label>
+                                                    </div>
+                                                    {insuranceType === 'Recurring' && forsikringAmount && (
+                                                        <p className="text-xs text-blue-600 mt-2">
+                                                            {forsikringAmount < 100 && '2 stjerner • '}
+                                                            {forsikringAmount >= 100 && forsikringAmount <= 299 && '3 stjerner • '}
+                                                            {forsikringAmount >= 300 && '4 stjerner • '}
+                                                            Gis kun én gang
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </>
                                     ) : formData.category && serviceCategories[formData.category] && (
