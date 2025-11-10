@@ -25,11 +25,6 @@ function SignUp() {
         setLoading(true);
 
         // --- Validation ---
-        if (!email.toLowerCase().endsWith('@elkjop.no')) {
-            setError('Kun e-postadresser som slutter på @elkjop.no er tillatt.');
-            setLoading(false);
-            return;
-        }
         if (password !== confirmPassword) {
             setError('Passordene stemmer ikke overens.');
             setLoading(false);
@@ -107,7 +102,7 @@ function SignUp() {
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                        <input type="email" required placeholder="E-post (@elkjop.no)" value={email} onChange={(e) => setEmail(e.target.value)}
+                        <input type="email" required placeholder="E-post" value={email} onChange={(e) => setEmail(e.target.value)}
                                className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
                     </div>
                     <div className="relative">

@@ -717,7 +717,7 @@ function Admin() {
                             type="email"
                             value={newEmail}
                             onChange={(e) => setNewEmail(e.target.value)}
-                            placeholder="ny.ansatt@elkjop.no"
+                            placeholder="ny.ansatt@example.com"
                             className="flex-grow p-3 sm:p-2 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
                         />
                         <button type="submit" className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-focus">
