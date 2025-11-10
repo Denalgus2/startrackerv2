@@ -401,7 +401,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Supermargin %
-                                                <span className="text-xs text-gray-500 ml-2">(>25% = 5⭐, høyest = 6⭐)</span>
+                                                <span className="text-xs text-gray-500 ml-2">(&gt;25% = 5⭐, høyest = 6⭐)</span>
                                             </label>
                                             <div className="relative">
                                                 <TrendingUp size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -420,7 +420,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 CS per time (kr)
-                                                <span className="text-xs text-gray-500 ml-2">(>25kr = 5⭐, høyest = 6⭐)</span>
+                                                <span className="text-xs text-gray-500 ml-2">(&gt;25kr = 5⭐, høyest = 6⭐)</span>
                                             </label>
                                             <div className="relative">
                                                 <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
