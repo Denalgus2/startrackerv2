@@ -101,7 +101,7 @@ function Moderator() {
                 try {
                     if (request.category === 'Forsikring' && request.type === 'Recurring') {
                         // Handle recurring insurance
-                        await addDoc(collection(db, 'recurringForsikringer'), {
+                        await addDoc(collection(db, 'sales'), {
                             staffId: request.staffId,
                             staffName: request.staffName,
                             bilag: request.bilag,
@@ -110,6 +110,8 @@ function Moderator() {
                             stars: request.stars,
                             timestamp: serverTimestamp(),
                             approvedBy: userRole,
+                            insuranceType: 'Recurring',
+                            forsikringAmount: request.forsikringAmount
                         });
 
                         // Also award stars for recurring insurance

@@ -37,7 +37,16 @@ function GlobalHistory({ sales }) {
                         <td className="px-6 py-4">{sale.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
                         <td className="px-6 py-4 font-medium text-on-surface">{sale.staffName}</td>
                         <td className="px-6 py-4">{sale.bilag}</td>
-                        <td className="px-6 py-4">{`${sale.category} - ${sale.service}`}</td>
+                        <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1">
+                                <span>{`${sale.category} - ${sale.service}`}</span>
+                                {sale.insuranceType === 'Recurring' && (
+                                    <span className="inline-flex w-fit rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                                        Gjentakende forsikring
+                                    </span>
+                                )}
+                            </div>
+                        </td>
                         <td className="px-6 py-4 font-bold text-right text-secondary">{sale.stars}</td>
                     </motion.tr>
                 ))}

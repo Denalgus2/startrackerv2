@@ -14,14 +14,22 @@ function History() {
     const [activeTab, setActiveTab] = useState('global');
 
     useEffect(() => {
-        // Don't set up Firestore listeners until auth is ready and user is authenticated
-        if (authLoading || !currentUser) {
+        // Wait for auth before wiring listeners
+        if (authLoading) {
+            return;
+        }
+
+        if (!currentUser) {
+            setSales([]);
+            setStaff([]);
             setLoading(false);
             return;
         }
 
         let unsubSales = null;
         let unsubStaff = null;
+
+        setLoading(true);
 
         try {
             const salesQuery = query(collection(db, 'sales'), orderBy('timestamp', 'desc'));
@@ -59,6 +67,8 @@ function History() {
 
     if (loading) return <div className="text-center p-10">Laster historikk...</div>;
 
+    const combinedHistory = sales;
+
     return (
         <div className="space-y-6">
             <h2 className="text-3xl font-bold text-on-surface">Salgshistorikk</h2>
@@ -75,7 +85,9 @@ function History() {
                         exit={{ y: -10, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                     >
-                        {activeTab === 'global' ? <GlobalHistory sales={sales} /> : <StaffHistory sales={sales} staff={staff} />}
+                        {activeTab === 'global'
+                            ? <GlobalHistory sales={combinedHistory} />
+                            : <StaffHistory sales={combinedHistory} staff={staff} />}
                     </motion.div>
                 </AnimatePresence>
             </div>

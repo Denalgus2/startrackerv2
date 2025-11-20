@@ -176,8 +176,8 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                     saleData.forsikringAmount = parseFloat(entry.displayAmount?.replace('kr', '') || 0);
                     saleData.insuranceType = entry.insuranceType || 'One-time';
                     if (entry.insuranceType === 'Recurring') {
-                        // For recurring, add to recurringForsikringer collection
-                        await addDoc(collection(db, 'recurringForsikringer'), {
+                        // For recurring, add to sales collection with insuranceType='Recurring'
+                        await addDoc(collection(db, 'sales'), {
                             ...saleData,
                             approvedBy: 'auto-approved'
                         });

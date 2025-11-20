@@ -206,7 +206,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             // Auto-approve for moderators and admins
             if (userRole === 'moderator' || userRole === 'admin') {
                 if (isRecurringInsurance) {
-                    await addDoc(collection(db, 'recurringForsikringer'), {
+                    await addDoc(collection(db, 'sales'), {
                         staffId,
                         staffName,
                         bilag,
