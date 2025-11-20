@@ -13,11 +13,34 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
     const [bilagEntries, setBilagEntries] = useState([]);
     const [currentBilag, setCurrentBilag] = useState({ bilag: '', category: '', service: '' });
     const [forsikringAmount, setForsikringAmount] = useState('');
+    const [insuranceType, setInsuranceType] = useState('One-time');
     const [loading, setLoading] = useState(false);
 
-    // Calculate forsikring category based on amount
-    const getForsikringService = (amount) => {
+    // Calculate stars for recurring forsikring based on amount
+    const getRecurringForsikringStars = (amount) => {
         const numAmount = parseFloat(amount);
+        if (!numAmount || isNaN(numAmount)) return 0;
+        
+        if (numAmount < 100) return 2;
+        if (numAmount >= 100 && numAmount <= 299) return 3;
+        if (numAmount >= 300) return 4;
+        return 0;
+    };
+
+    // Calculate forsikring category based on amount
+    const getForsikringService = (amount, isRecurring = false) => {
+        const numAmount = parseFloat(amount);
+        if (!numAmount || isNaN(numAmount)) return null;
+        
+        // For recurring, return a service name for tracking
+        if (isRecurring) {
+            if (numAmount < 100) return 'Gjentakende - Under 100kr';
+            if (numAmount >= 100 && numAmount <= 299) return 'Gjentakende - 100-299kr';
+            if (numAmount >= 300) return 'Gjentakende - 300kr+';
+            return 'Gjentakende - Ukjent';
+        }
+        
+        // For one-time, use the standard service mapping
         if (numAmount < 100) return 'Mindre enn 100kr x3';
         if (numAmount >= 100 && numAmount <= 299) return '100-299kr x2';
         if (numAmount >= 300 && numAmount <= 499) return '300-499kr';
@@ -30,20 +53,28 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
     // Calculate total stars including multipliers
     const calculateStars = () => {
         const serviceCount = {};
+        let totalStars = 0;
+        const multiplierProgress = {};
 
-        // Count how many of each service we have
-        bilagEntries.forEach(entry => {
+        // First, handle recurring forsikring entries separately (they give stars directly, no multipliers)
+        const recurringEntries = bilagEntries.filter(e => e.category === 'Forsikring' && e.insuranceType === 'Recurring' && e.recurringStars !== undefined);
+        recurringEntries.forEach(entry => {
+            totalStars += entry.recurringStars;
+        });
+
+        // Then, handle all other entries with standard multiplier logic
+        const nonRecurringEntries = bilagEntries.filter(e => !(e.category === 'Forsikring' && e.insuranceType === 'Recurring'));
+        
+        nonRecurringEntries.forEach(entry => {
             const key = `${entry.category}:${entry.service}`;
             serviceCount[key] = (serviceCount[key] || 0) + 1;
         });
 
-        let totalStars = 0;
-        const multiplierProgress = {};
-
-        // Calculate stars based on multipliers
+        // Calculate stars based on multipliers for non-recurring entries
         Object.entries(serviceCount).forEach(([key, count]) => {
             const [category, service] = key.split(':');
-            const baseStars = serviceCategories[category][service];
+            const baseStars = serviceCategories[category]?.[service];
+            if (!baseStars) return;
 
             // Check if service has multiplier (x2, x3, etc.)
             if (service.includes(' x2')) {
@@ -73,7 +104,7 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                 showError('Ugyldig beløp', 'Vennligst skriv inn et gyldig forsikringsbeløp');
                 return;
             }
-            finalService = getForsikringService(forsikringAmount);
+            finalService = getForsikringService(forsikringAmount, insuranceType === 'Recurring');
         }
 
         if (!finalService) return;
@@ -84,14 +115,20 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
             id: Date.now()
         };
 
-        // Add display amount for forsikring
+        // Add display amount and type for forsikring
         if (currentBilag.category === 'Forsikring') {
             entry.displayAmount = `${forsikringAmount}kr`;
+            entry.insuranceType = insuranceType;
+            // For recurring, store the stars directly since they're calculated differently
+            if (insuranceType === 'Recurring') {
+                entry.recurringStars = getRecurringForsikringStars(forsikringAmount);
+            }
         }
 
         setBilagEntries([...bilagEntries, entry]);
         setCurrentBilag({ bilag: '', category: '', service: '' });
         setForsikringAmount('');
+        setInsuranceType('One-time');
     };
 
     const removeBilagEntry = (id) => {
@@ -112,8 +149,10 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                 let starsForThisSale = 0;
                 const service = entry.service;
 
-                // Check if this is a multiplier service
-                if (service.includes(' x2') || service.includes(' x3')) {
+                // For recurring forsikring, use the pre-calculated stars
+                if (entry.category === 'Forsikring' && entry.insuranceType === 'Recurring' && entry.recurringStars !== undefined) {
+                    starsForThisSale = entry.recurringStars;
+                } else if (service.includes(' x2') || service.includes(' x3')) {
                     // For multiplier services, individual sales get 0 stars
                     // Stars are only awarded when the multiplier threshold is reached
                     starsForThisSale = 0;
@@ -122,7 +161,7 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                     starsForThisSale = serviceCategories[entry.category][entry.service];
                 }
 
-                await addDoc(collection(db, 'sales'), {
+                const saleData = {
                     staffId: selectedStaff,
                     staffName: staffMember.name,
                     bilag: entry.bilag,
@@ -130,7 +169,23 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                     service: entry.service,
                     stars: starsForThisSale,
                     timestamp: serverTimestamp()
-                });
+                };
+
+                // Add forsikring-specific fields
+                if (entry.category === 'Forsikring') {
+                    saleData.forsikringAmount = parseFloat(entry.displayAmount?.replace('kr', '') || 0);
+                    saleData.insuranceType = entry.insuranceType || 'One-time';
+                    if (entry.insuranceType === 'Recurring') {
+                        // For recurring, add to recurringForsikringer collection
+                        await addDoc(collection(db, 'recurringForsikringer'), {
+                            ...saleData,
+                            approvedBy: 'auto-approved'
+                        });
+                        continue;
+                    }
+                }
+
+                await addDoc(collection(db, 'sales'), saleData);
             }
 
             // Update staff total stars - now using the correct totalStars value
@@ -158,6 +213,8 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
         setSelectedStaff('');
         setBilagEntries([]);
         setCurrentBilag({ bilag: '', category: '', service: '' });
+        setForsikringAmount('');
+        setInsuranceType('One-time');
     };
 
     return (
@@ -228,6 +285,7 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                                             onChange={(e) => {
                                                 setCurrentBilag({...currentBilag, category: e.target.value, service: ''});
                                                 setForsikringAmount('');
+                                                setInsuranceType('One-time');
                                             }}
                                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
                                         >
@@ -267,12 +325,46 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                                         )}
                                     </div>
 
+                                    {/* Insurance type selector for forsikring */}
+                                    {currentBilag.category === 'Forsikring' && (
+                                        <div className="flex items-center gap-4 p-3 bg-gray-50 border border-gray-300 rounded-lg mb-4">
+                                            <label className="text-sm font-medium text-gray-700">Type:</label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="insuranceType"
+                                                    value="One-time"
+                                                    checked={insuranceType === 'One-time'}
+                                                    onChange={(e) => setInsuranceType(e.target.value)}
+                                                    className="w-4 h-4 text-[#009A44] focus:ring-[#009A44]"
+                                                />
+                                                <span className="text-sm text-gray-700">Engang</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="insuranceType"
+                                                    value="Recurring"
+                                                    checked={insuranceType === 'Recurring'}
+                                                    onChange={(e) => setInsuranceType(e.target.value)}
+                                                    className="w-4 h-4 text-[#009A44] focus:ring-[#009A44]"
+                                                />
+                                                <span className="text-sm text-gray-700">Gjentakende</span>
+                                            </label>
+                                        </div>
+                                    )}
+
                                     {/* Preview for forsikring */}
                                     {currentBilag.category === 'Forsikring' && forsikringAmount && (
                                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                                             <p className="text-sm text-blue-800">
-                                                <strong>{forsikringAmount}kr</strong> forsikring → kategoriseres som:
-                                                <strong className="ml-1">{getForsikringService(forsikringAmount)}</strong>
+                                                <strong>{forsikringAmount}kr</strong> forsikring ({insuranceType === 'Recurring' ? 'Gjentakende' : 'Engang'}) → kategoriseres som:
+                                                <strong className="ml-1">{getForsikringService(forsikringAmount, insuranceType === 'Recurring')}</strong>
+                                                {insuranceType === 'Recurring' && (
+                                                    <span className="ml-2 text-green-700 font-semibold">
+                                                        ({getRecurringForsikringStars(forsikringAmount)} stjerner - gis kun én gang)
+                                                    </span>
+                                                )}
                                             </p>
                                         </div>
                                     )}
@@ -312,7 +404,13 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-sm text-[#009A44] font-medium">
-                                                            {serviceCategories[entry.category][entry.service]} ⭐
+                                                            {entry.recurringStars !== undefined 
+                                                                ? `${entry.recurringStars} ⭐`
+                                                                : `${serviceCategories[entry.category]?.[entry.service] || 0} ⭐`
+                                                            }
+                                                            {entry.insuranceType === 'Recurring' && (
+                                                                <span className="ml-1 text-xs text-blue-600">(Gjentakende)</span>
+                                                            )}
                                                         </span>
                                                         <button
                                                             onClick={() => removeBilagEntry(entry.id)}

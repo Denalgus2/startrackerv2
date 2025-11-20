@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, KeyRound } from 'lucide-react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
@@ -17,6 +17,9 @@ function Login() {
     const [needsEmailLink, setNeedsEmailLink] = useState(false);
     const [emailForBackfill, setEmailForBackfill] = useState('');
     const [expectedUid, setExpectedUid] = useState(null);
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [resetEmail, setResetEmail] = useState('');
+    const [resetSuccess, setResetSuccess] = useState('');
     const navigate = useNavigate();
 
     // Persist form values during any brief route churn
@@ -37,6 +40,54 @@ function Login() {
             sessionStorage.setItem('loginForm', JSON.stringify({ emailOrUsername, password }));
         };
     }, [emailOrUsername, password]);
+
+    const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        setError('');
+        setResetSuccess('');
+
+        try {
+            const emailInput = resetEmail.trim();
+            let emailToUse = emailInput;
+
+            // If input is a username (no '@'), look up the email
+            if (emailInput && !emailInput.includes('@')) {
+                const usernameLower = emailInput.toLowerCase();
+                const usernameRef = doc(db, 'usernames', usernameLower);
+                const usernameSnap = await getDoc(usernameRef);
+
+                if (!usernameSnap.exists()) {
+                    setError('Brukernavn eller e-post ikke funnet.');
+                    return;
+                }
+
+                const data = usernameSnap.data();
+                emailToUse = (data.email || '').trim();
+                if (!emailToUse) {
+                    setError('Ingen e-post knyttet til dette brukernavnet.');
+                    return;
+                }
+            }
+
+            await sendPasswordResetEmail(auth, emailToUse.toLowerCase());
+            setResetSuccess('Tilbakestillings-e-post sendt! Sjekk innboksen din.');
+            setResetEmail('');
+            // Auto-close the forgot password form after 3 seconds
+            setTimeout(() => {
+                setShowForgotPassword(false);
+                setResetSuccess('');
+            }, 3000);
+        } catch (err) {
+            console.error('Password reset error:', err);
+            if (err.code === 'auth/user-not-found') {
+                setError('Ingen bruker funnet med denne e-posten.');
+            } else if (err.code === 'auth/invalid-email') {
+                setError('Ugyldig e-postadresse.');
+            } else {
+                setError('Kunne ikke sende tilbakestillings-e-post. Prøv igjen.');
+            }
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -129,36 +180,94 @@ function Login() {
                         <ElkjopBanner />
                         <h2 className="mt-6 text-2xl font-bold text-on-surface">Logg inn</h2>
                     </div>
-                    <form className="space-y-6" onSubmit={handleSubmit}>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                            <input type="text" required placeholder="E-post eller brukernavn" value={emailOrUsername} onChange={(e) => setEmailOrUsername(e.target.value)}
-                                   className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
-                        </div>
-                        <div className="relative">
-                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
-                            <input type="password" required placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)}
-                                   className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
-                        </div>
-                        {needsEmailLink && (
+                    {!showForgotPassword ? (
+                        <form className="space-y-6" onSubmit={handleSubmit}>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                                <input type="text" required placeholder="E-post eller brukernavn" value={emailOrUsername} onChange={(e) => setEmailOrUsername(e.target.value)}
+                                       className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
+                            </div>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                                <input type="password" required placeholder="Passord" value={password} onChange={(e) => setPassword(e.target.value)}
+                                       className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"/>
+                            </div>
+                            {needsEmailLink && (
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="E-posten din (for å koble til brukernavn)"
+                                        value={emailForBackfill}
+                                        onChange={(e) => setEmailForBackfill(e.target.value)}
+                                        className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
+                                    />
+                                </div>
+                            )}
+                            {error && <p className="text-danger text-sm text-center">{error}</p>}
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} type="submit"
+                                           className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
+                                {needsEmailLink ? 'Koble og logg inn' : 'Logg inn'}
+                            </motion.button>
+                            <div className="text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowForgotPassword(true);
+                                        setError('');
+                                    }}
+                                    className="text-sm text-primary hover:underline"
+                                >
+                                    Glemt passord?
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <form className="space-y-6" onSubmit={handleForgotPassword}>
+                            <div className="text-center mb-4">
+                                <h3 className="text-lg font-semibold text-on-surface">Tilbakestill passord</h3>
+                                <p className="text-sm text-on-surface-secondary mt-2">
+                                    Skriv inn e-posten eller brukernavnet ditt, så sender vi deg en lenke for å tilbakestille passordet.
+                                </p>
+                            </div>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-secondary" />
                                 <input
-                                    type="email"
+                                    type="text"
                                     required
-                                    placeholder="E-posten din (for å koble til brukernavn)"
-                                    value={emailForBackfill}
-                                    onChange={(e) => setEmailForBackfill(e.target.value)}
+                                    placeholder="E-post eller brukernavn"
+                                    value={resetEmail}
+                                    onChange={(e) => setResetEmail(e.target.value)}
                                     className="w-full pl-10 pr-3 py-3 bg-background border border-border-color rounded-lg text-on-surface focus:ring-2 focus:ring-primary outline-none"
                                 />
                             </div>
-                        )}
-                        {error && <p className="text-danger text-sm text-center">{error}</p>}
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} type="submit"
-                                       className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150">
-                            {needsEmailLink ? 'Koble og logg inn' : 'Logg inn'}
-                        </motion.button>
-                    </form>
+                            {error && <p className="text-danger text-sm text-center">{error}</p>}
+                            {resetSuccess && <p className="text-green-600 text-sm text-center font-medium">{resetSuccess}</p>}
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.97 }}
+                                type="submit"
+                                className="w-full py-3 px-4 rounded-lg text-white font-bold text-lg bg-[#009A44] hover:bg-green-700 shadow-lg border-2 border-[#009A44] transition-all duration-150"
+                            >
+                                Send tilbakestillings-e-post
+                            </motion.button>
+                            <div className="text-center">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowForgotPassword(false);
+                                        setError('');
+                                        setResetSuccess('');
+                                        setResetEmail('');
+                                    }}
+                                    className="text-sm text-primary hover:underline"
+                                >
+                                    Tilbake til innlogging
+                                </button>
+                            </div>
+                        </form>
+                    )}
                     <p className="text-center text-sm text-on-surface-secondary">
                         Har du ikke en konto? <Link to="/signup" className="font-medium text-primary hover:underline">Registrer deg</Link>
                     </p>
