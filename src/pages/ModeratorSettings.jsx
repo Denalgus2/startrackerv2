@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, serverTimestamp, query, where, getDocs, increment, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Settings, Plus, Edit3, Trash2, Star, Calendar, Megaphone, Save, AlertTriangle, Shield, Trophy, Zap } from 'lucide-react';
@@ -1015,13 +1015,16 @@ function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, 
 
 // System Settings Tab Component
 function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) {
+    const { showSuccess, showError, showConfirmation } = useNotification();
     const [bonusData, setBonusData] = useState({
         enabled: false,
         category: 'Forsikring',
         multiplier: 2,
         description: 'Dobbel stjerne-uke!',
+        startDate: '',
         endDate: ''
     });
+    const [isApplyingRetroactive, setIsApplyingRetroactive] = useState(false);
 
     useEffect(() => {
         if (systemSettings?.activeBonus) {
@@ -1030,6 +1033,7 @@ function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) 
                 category: systemSettings.activeBonus.category || 'Forsikring',
                 multiplier: systemSettings.activeBonus.multiplier || 2,
                 description: systemSettings.activeBonus.description || '',
+                startDate: systemSettings.activeBonus.startDate || '',
                 endDate: systemSettings.activeBonus.endDate || ''
             });
         }
@@ -1039,6 +1043,115 @@ function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) 
         updateSystemSettings({
             activeBonus: bonusData
         });
+
+        // Check if start date is in the past and offer retroactive update
+        if (bonusData.enabled && bonusData.startDate) {
+            const start = new Date(bonusData.startDate);
+            const now = new Date();
+            // Reset time part for comparison
+            start.setHours(0, 0, 0, 0);
+            now.setHours(0, 0, 0, 0);
+
+            if (start <= now) {
+                showConfirmation(
+                    'Tilbakevirkende kraft?',
+                    'Startdatoen er i fortiden. Vil du oppdatere eksisterende salg i denne perioden med bonusen?',
+                    () => applyRetroactiveBonus()
+                );
+            }
+        }
+    };
+
+    const applyRetroactiveBonus = async () => {
+        if (!bonusData.enabled || !bonusData.startDate) return;
+        setIsApplyingRetroactive(true);
+
+        try {
+            const startDate = new Date(bonusData.startDate);
+            startDate.setHours(0, 0, 0, 0);
+            
+            const endDate = bonusData.endDate ? new Date(bonusData.endDate) : new Date();
+            endDate.setHours(23, 59, 59, 999);
+
+            // Query sales in range
+            const salesRef = collection(db, 'sales');
+            const q = query(
+                salesRef, 
+                where('timestamp', '>=', startDate),
+                where('timestamp', '<=', endDate)
+            );
+
+            const snapshot = await getDocs(q);
+            let updatedCount = 0;
+            const batch = writeBatch(db);
+            const staffUpdates = {}; // Map of staffId -> star difference
+
+            snapshot.docs.forEach(doc => {
+                const sale = doc.data();
+                
+                // Check category match
+                if (bonusData.category !== 'All' && sale.category !== bonusData.category) return;
+                
+                // Check if bonus already applied (avoid double dipping)
+                if (sale.bonusApplied) return;
+
+                // Calculate new stars
+                const originalStars = sale.stars;
+                // If it was a recurring insurance, the stars are stored directly.
+                // If it was a normal sale, stars are also stored directly.
+                // We just multiply the current stars.
+                // NOTE: This assumes the current stars are the "base" stars. 
+                // If a previous bonus was applied, we might be multiplying on top of it, 
+                // but we checked !sale.bonusApplied above.
+                
+                const newStars = Math.round(originalStars * bonusData.multiplier);
+                const difference = newStars - originalStars;
+
+                if (difference !== 0) {
+                    // Update sale document
+                    const saleRef = doc.ref;
+                    batch.update(saleRef, {
+                        stars: newStars,
+                        bonusApplied: true,
+                        bonusMultiplier: bonusData.multiplier,
+                        originalStars: originalStars,
+                        bonusDescription: bonusData.description + ' (Etterregistrert)'
+                    });
+
+                    // Track staff updates
+                    if (!staffUpdates[sale.staffId]) {
+                        staffUpdates[sale.staffId] = 0;
+                    }
+                    staffUpdates[sale.staffId] += difference;
+                    updatedCount++;
+                }
+            });
+
+            // Commit batch updates for sales
+            if (updatedCount > 0) {
+                await batch.commit();
+
+                // Update staff totals
+                // We can't do this in the same batch easily if there are many staff, 
+                // but for now let's do individual updates or a new batch
+                const staffBatch = writeBatch(db);
+                for (const [staffId, diff] of Object.entries(staffUpdates)) {
+                    const staffRef = doc(db, 'staff', staffId);
+                    staffBatch.update(staffRef, { stars: increment(diff) });
+                }
+                await staffBatch.commit();
+
+                showSuccess('Oppdatering fullført', `${updatedCount} salg ble oppdatert med bonus.`);
+            } else {
+                showSuccess('Ingen endringer', 'Ingen salg trengte oppdatering.');
+            }
+
+        } catch (error) {
+            console.error('Error applying retroactive bonus:', error);
+            showError('Feil', 'Kunne ikke oppdatere eksisterende salg: ' + error.message);
+        } finally {
+            setIsApplyingRetroactive(false);
+        }
     };
 
     return (
@@ -1126,7 +1239,18 @@ function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) 
                             />
                         </div>
                         
-                        <div className="md:col-span-2">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Startdato</label>
+                            <input
+                                type="date"
+                                value={bonusData.startDate}
+                                onChange={(e) => setBonusData({ ...bonusData, startDate: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                disabled={!bonusData.enabled}
+                            />
+                        </div>
+
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Utløpsdato (valgfritt)</label>
                             <input
                                 type="date"
@@ -1135,11 +1259,25 @@ function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) 
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
                                 disabled={!bonusData.enabled}
                             />
-                            <p className="text-xs text-gray-500 mt-1">Bonuser deaktiveres automatisk etter denne datoen.</p>
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                            <p className="text-xs text-gray-500">
+                                Bonuser er aktive mellom startdato og utløpsdato. Hvis startdato er i fortiden, kan du velge å oppdatere tidligere salg når du lagrer.
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end pt-2 gap-3">
+                        {bonusData.enabled && bonusData.startDate && (
+                            <button
+                                onClick={applyRetroactiveBonus}
+                                disabled={isApplyingRetroactive}
+                                className="flex items-center gap-2 px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            >
+                                {isApplyingRetroactive ? 'Oppdaterer...' : 'Oppdater eksisterende salg nå'}
+                            </button>
+                        )}
                         <button
                             onClick={handleSaveBonus}
                             className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

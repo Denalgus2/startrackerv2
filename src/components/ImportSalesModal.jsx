@@ -76,7 +76,14 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
             if (activeBonus && activeBonus.enabled) {
                 const now = new Date();
                 const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
-                if (!endDate || endDate >= now) {
+                const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
+                
+                // Reset time part for comparison
+                now.setHours(0, 0, 0, 0);
+                if (endDate) endDate.setHours(23, 59, 59, 999);
+                if (startDate) startDate.setHours(0, 0, 0, 0);
+                
+                if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
                     if (activeBonus.category === 'All' || activeBonus.category === category) {
                         return activeBonus.multiplier || 1;
                     }
@@ -187,7 +194,14 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                 if (activeBonus && activeBonus.enabled) {
                     const now = new Date();
                     const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
-                    if (!endDate || endDate >= now) {
+                    const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
+                    
+                    // Reset time part for comparison
+                    now.setHours(0, 0, 0, 0);
+                    if (endDate) endDate.setHours(23, 59, 59, 999);
+                    if (startDate) startDate.setHours(0, 0, 0, 0);
+                    
+                    if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
                         if (activeBonus.category === 'All' || activeBonus.category === category) {
                             return activeBonus.multiplier || 1;
                         }

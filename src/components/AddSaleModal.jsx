@@ -192,8 +192,14 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
             // Check if bonus is expired
             const now = new Date();
             const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+            const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
             
-            if (!endDate || endDate >= now) {
+            // Reset time part for comparison
+            now.setHours(0, 0, 0, 0);
+            if (endDate) endDate.setHours(23, 59, 59, 999);
+            if (startDate) startDate.setHours(0, 0, 0, 0);
+            
+            if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
                 // Check if category matches (or if bonus is for all categories)
                 if (activeBonus.category === 'All' || activeBonus.category === currentCategory) {
                     const originalStars = result.starsEarned;
@@ -230,12 +236,52 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
         // Calculate stars - for recurring, use direct calculation; otherwise use multiplier logic
         let starsToAdd = 0;
+        let bonusMetadata = {};
+
         if (category === 'Forsikring' && insuranceType === 'Recurring') {
             starsToAdd = getRecurringForsikringStars(forsikringAmount);
+            
+            // Apply bonus for recurring if active
+            if (activeBonus && activeBonus.enabled) {
+                const now = new Date();
+                const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+                const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
+                
+                // Reset time part for comparison
+                now.setHours(0, 0, 0, 0);
+                if (endDate) endDate.setHours(23, 59, 59, 999);
+                if (startDate) startDate.setHours(0, 0, 0, 0);
+                
+                if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
+                    if (activeBonus.category === 'All' || activeBonus.category === category) {
+                        const originalStars = starsToAdd;
+                        const bonusMultiplier = activeBonus.multiplier || 1;
+                        starsToAdd = Math.round(originalStars * bonusMultiplier);
+                        
+                        if (starsToAdd !== originalStars) {
+                            bonusMetadata = {
+                                bonusApplied: true,
+                                bonusMultiplier: bonusMultiplier,
+                                originalStars: originalStars,
+                                bonusDescription: activeBonus.description
+                            };
+                        }
+                    }
+                }
+            }
         } else {
             // Pass the calculated service to ensure we use the latest value
             const multiplierInfo = getMultiplierProgress(service, category);
             starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
+            
+            if (multiplierInfo && multiplierInfo.hasBonus) {
+                bonusMetadata = {
+                    bonusApplied: true,
+                    bonusMultiplier: activeBonus.multiplier,
+                    originalStars: multiplierInfo.originalStars,
+                    bonusDescription: activeBonus.description
+                };
+            }
         }
 
         if (starsToAdd === undefined || starsToAdd === null || isNaN(starsToAdd)) {
@@ -260,7 +306,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                         timestamp: serverTimestamp(),
                         approvedBy: 'auto-approved',
                         forsikringAmount: parseFloat(forsikringAmount),
-                        insuranceType: 'Recurring'
+                        insuranceType: 'Recurring',
+                        ...bonusMetadata
                     });
 
                     const staffRef = doc(db, 'staff', staffId);
@@ -279,7 +326,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                         ...(category === 'Forsikring' && { 
                             forsikringAmount: parseFloat(forsikringAmount),
                             insuranceType: 'One-time'
-                        })
+                        }),
+                        ...bonusMetadata
                     });
 
                     const staffRef = doc(db, 'staff', staffId);
@@ -300,7 +348,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                     ...(category === 'Forsikring' && { 
                         forsikringAmount: parseFloat(forsikringAmount),
                         insuranceType: insuranceType
-                    })
+                    }),
+                    ...bonusMetadata
                 };
 
                 if (isRecurringInsurance) {
