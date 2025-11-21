@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Settings, Plus, Edit3, Trash2, Star, Calendar, Megaphone, Save, AlertTriangle, Shield, Trophy } from 'lucide-react';
+import { Settings, Plus, Edit3, Trash2, Star, Calendar, Megaphone, Save, AlertTriangle, Shield, Trophy, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from '../components/NotificationModal';
@@ -115,6 +115,16 @@ function ModeratorSettings() {
         } catch (error) {
             console.error('Error saving services:', error);
             showError('Feil', 'Kunne ikke lagre tjenester.');
+        }
+    };
+
+    const updateSystemSettings = async (newSettings) => {
+        try {
+            await setDoc(doc(db, 'config', 'system'), newSettings, { merge: true });
+            showSuccess('Systeminnstillinger oppdatert', 'Endringene er lagret.');
+        } catch (error) {
+            console.error('Error updating system settings:', error);
+            showError('Feil', 'Kunne ikke oppdatere systeminnstillinger.');
         }
     };
 
@@ -410,7 +420,8 @@ function ModeratorSettings() {
                             {activeTab === 'system' && (
                                 <SystemTab
                                     systemSettings={systemSettings}
-                                    setSystemSettings={setSystemSettings}
+                                    updateSystemSettings={updateSystemSettings}
+                                    serviceCategories={services}
                                 />
                             )}
                         </AnimatePresence>
@@ -1003,7 +1014,33 @@ function AnnouncementsTab({ announcements, newAnnouncement, setNewAnnouncement, 
 }
 
 // System Settings Tab Component
-function SystemTab({ systemSettings, setSystemSettings }) {
+function SystemTab({ systemSettings, updateSystemSettings, serviceCategories }) {
+    const [bonusData, setBonusData] = useState({
+        enabled: false,
+        category: 'Forsikring',
+        multiplier: 2,
+        description: 'Dobbel stjerne-uke!',
+        endDate: ''
+    });
+
+    useEffect(() => {
+        if (systemSettings?.activeBonus) {
+            setBonusData({
+                enabled: systemSettings.activeBonus.enabled || false,
+                category: systemSettings.activeBonus.category || 'Forsikring',
+                multiplier: systemSettings.activeBonus.multiplier || 2,
+                description: systemSettings.activeBonus.description || '',
+                endDate: systemSettings.activeBonus.endDate || ''
+            });
+        }
+    }, [systemSettings]);
+
+    const handleSaveBonus = () => {
+        updateSystemSettings({
+            activeBonus: bonusData
+        });
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1013,14 +1050,103 @@ function SystemTab({ systemSettings, setSystemSettings }) {
         >
             <h2 className="text-xl font-semibold text-gray-900">Systeminnstillinger</h2>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+            {/* Active Bonus Configuration */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                        <Zap className="h-6 w-6 text-purple-600" />
+                    </div>
                     <div>
-                        <h3 className="font-semibold text-yellow-800">Kommende funksjoner</h3>
-                        <p className="text-yellow-700 text-sm mt-1">
-                            Avanserte systeminnstillinger som månedlige forsikringsbelønninger, automatiske stjerneresets og mer kommer snart!
-                        </p>
+                        <h3 className="text-lg font-semibold text-purple-900">Midlertidig Bonus</h3>
+                        <p className="text-purple-700 text-sm">Aktiver ekstra stjerner for en periode</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4 bg-white p-4 rounded-lg border border-purple-100">
+                    <div className="flex items-center justify-between">
+                        <label className="font-medium text-gray-700">Status</label>
+                        <div className="flex items-center gap-3">
+                            <span className={`text-sm font-medium ${bonusData.enabled ? 'text-green-600' : 'text-gray-500'}`}>
+                                {bonusData.enabled ? 'AKTIV' : 'INAKTIV'}
+                            </span>
+                            <button
+                                onClick={() => setBonusData({ ...bonusData, enabled: !bonusData.enabled })}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    bonusData.enabled ? 'bg-purple-600' : 'bg-gray-200'
+                                }`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    bonusData.enabled ? 'translate-x-6' : 'translate-x-1'
+                                }`} />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                            <select
+                                value={bonusData.category}
+                                onChange={(e) => setBonusData({ ...bonusData, category: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                disabled={!bonusData.enabled}
+                            >
+                                <option value="All">Alle kategorier</option>
+                                {Object.keys(serviceCategories).map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Multiplier</label>
+                            <select
+                                value={bonusData.multiplier}
+                                onChange={(e) => setBonusData({ ...bonusData, multiplier: parseFloat(e.target.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                disabled={!bonusData.enabled}
+                            >
+                                <option value="1.5">1.5x Stjerner</option>
+                                <option value="2">2x Stjerner (Dobbel)</option>
+                                <option value="3">3x Stjerner (Trippel)</option>
+                                <option value="4">4x Stjerner</option>
+                                <option value="5">5x Stjerner</option>
+                            </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivelse (vises til ansatte)</label>
+                            <input
+                                type="text"
+                                value={bonusData.description}
+                                onChange={(e) => setBonusData({ ...bonusData, description: e.target.value })}
+                                placeholder="F.eks. Dobbel stjerne-uke på forsikring!"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                disabled={!bonusData.enabled}
+                            />
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Utløpsdato (valgfritt)</label>
+                            <input
+                                type="date"
+                                value={bonusData.endDate}
+                                onChange={(e) => setBonusData({ ...bonusData, endDate: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                                disabled={!bonusData.enabled}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Bonuser deaktiveres automatisk etter denne datoen.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                        <button
+                            onClick={handleSaveBonus}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                            <Save size={16} />
+                            Lagre Bonusinnstillinger
+                        </button>
                     </div>
                 </div>
             </div>

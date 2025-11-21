@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { collection, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, increment, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { serviceCategories } from '../data/services';
-import { X, Plus, Trash2, Star, User } from 'lucide-react';
+import { X, Plus, Trash2, Star, User, Zap } from 'lucide-react';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from './NotificationModal';
 
@@ -15,6 +15,20 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
     const [forsikringAmount, setForsikringAmount] = useState('');
     const [insuranceType, setInsuranceType] = useState('One-time');
     const [loading, setLoading] = useState(false);
+    const [activeBonus, setActiveBonus] = useState(null);
+
+    // Load active bonus
+    useEffect(() => {
+        const systemRef = doc(db, 'config', 'system');
+        const unsub = onSnapshot(systemRef, (doc) => {
+            if (doc.exists() && doc.data().activeBonus) {
+                setActiveBonus(doc.data().activeBonus);
+            } else {
+                setActiveBonus(null);
+            }
+        });
+        return () => unsub();
+    }, []);
 
     // Calculate stars for recurring forsikring based on amount
     const getRecurringForsikringStars = (amount) => {
@@ -55,11 +69,29 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
         const serviceCount = {};
         let totalStars = 0;
         const multiplierProgress = {};
+        let bonusStars = 0;
+
+        // Helper to check if bonus applies
+        const getBonusMultiplier = (category) => {
+            if (activeBonus && activeBonus.enabled) {
+                const now = new Date();
+                const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+                if (!endDate || endDate >= now) {
+                    if (activeBonus.category === 'All' || activeBonus.category === category) {
+                        return activeBonus.multiplier || 1;
+                    }
+                }
+            }
+            return 1;
+        };
 
         // First, handle recurring forsikring entries separately (they give stars directly, no multipliers)
         const recurringEntries = bilagEntries.filter(e => e.category === 'Forsikring' && e.insuranceType === 'Recurring' && e.recurringStars !== undefined);
         recurringEntries.forEach(entry => {
-            totalStars += entry.recurringStars;
+            const multiplier = getBonusMultiplier(entry.category);
+            const stars = entry.recurringStars * multiplier;
+            totalStars += stars;
+            if (multiplier > 1) bonusStars += (stars - entry.recurringStars);
         });
 
         // Then, handle all other entries with standard multiplier logic
@@ -76,21 +108,28 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
             const baseStars = serviceCategories[category]?.[service];
             if (!baseStars) return;
 
+            const multiplier = getBonusMultiplier(category);
+            let earnedStars = 0;
+
             // Check if service has multiplier (x2, x3, etc.)
             if (service.includes(' x2')) {
                 const completeSets = Math.floor(count / 2);
-                totalStars += completeSets * baseStars;
+                earnedStars = completeSets * baseStars;
                 multiplierProgress[key] = { current: count, needed: 2, complete: completeSets, service };
             } else if (service.includes(' x3')) {
                 const completeSets = Math.floor(count / 3);
-                totalStars += completeSets * baseStars;
+                earnedStars = completeSets * baseStars;
                 multiplierProgress[key] = { current: count, needed: 3, complete: completeSets, service };
             } else {
-                totalStars += count * baseStars;
+                earnedStars = count * baseStars;
             }
+
+            const finalStars = Math.round(earnedStars * multiplier);
+            totalStars += finalStars;
+            if (multiplier > 1) bonusStars += (finalStars - earnedStars);
         });
 
-        return { totalStars, multiplierProgress, serviceCount };
+        return { totalStars, multiplierProgress, serviceCount, bonusStars };
     };
 
     const addBilagEntry = () => {
@@ -143,22 +182,38 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
             const staffMember = staffList.find(s => s.id === selectedStaff);
             const { totalStars } = calculateStars(); // Destructure to get the actual number
 
+            // Helper to check if bonus applies
+            const getBonusMultiplier = (category) => {
+                if (activeBonus && activeBonus.enabled) {
+                    const now = new Date();
+                    const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+                    if (!endDate || endDate >= now) {
+                        if (activeBonus.category === 'All' || activeBonus.category === category) {
+                            return activeBonus.multiplier || 1;
+                        }
+                    }
+                }
+                return 1;
+            };
+
             // Add each bilag as a sale record
             for (const entry of bilagEntries) {
                 // Calculate stars for this individual sale based on multiplier logic
                 let starsForThisSale = 0;
                 const service = entry.service;
+                const bonusMultiplier = getBonusMultiplier(entry.category);
 
                 // For recurring forsikring, use the pre-calculated stars
                 if (entry.category === 'Forsikring' && entry.insuranceType === 'Recurring' && entry.recurringStars !== undefined) {
-                    starsForThisSale = entry.recurringStars;
+                    starsForThisSale = Math.round(entry.recurringStars * bonusMultiplier);
                 } else if (service.includes(' x2') || service.includes(' x3')) {
                     // For multiplier services, individual sales get 0 stars
                     // Stars are only awarded when the multiplier threshold is reached
                     starsForThisSale = 0;
                 } else {
                     // Non-multiplier services get their full star value
-                    starsForThisSale = serviceCategories[entry.category][entry.service];
+                    const baseStars = serviceCategories[entry.category][entry.service];
+                    starsForThisSale = Math.round(baseStars * bonusMultiplier);
                 }
 
                 const saleData = {
@@ -433,6 +488,12 @@ function ImportSalesModal({ isOpen, onClose, staffList }) {
                                             <div className="flex items-center gap-2 text-lg font-bold text-[#009A44]">
                                                 <Star size={20} />
                                                 {calculateStars().totalStars}
+                                                {calculateStars().bonusStars > 0 && (
+                                                    <span className="text-sm font-normal text-purple-600 flex items-center gap-1 ml-2">
+                                                        <Zap size={14} />
+                                                        (Inkl. {calculateStars().bonusStars} bonus)
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 

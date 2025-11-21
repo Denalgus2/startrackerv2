@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
-import { X, Star, FileText, ShoppingBag, Tag, Repeat } from 'lucide-react';
+import { X, Star, FileText, ShoppingBag, Tag, Repeat, Zap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../hooks/useNotification';
 import { useServices } from '../hooks/useServices';
@@ -17,6 +17,20 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
     const [insuranceType, setInsuranceType] = useState('One-time');
     const [existingSales, setExistingSales] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [activeBonus, setActiveBonus] = useState(null);
+
+    // Load active bonus
+    useEffect(() => {
+        const systemRef = doc(db, 'config', 'system');
+        const unsub = onSnapshot(systemRef, (doc) => {
+            if (doc.exists() && doc.data().activeBonus) {
+                setActiveBonus(doc.data().activeBonus);
+            } else {
+                setActiveBonus(null);
+            }
+        });
+        return () => unsub();
+    }, []);
 
     // Categories available for staff to submit manually
     const availableCategories = Object.keys(serviceCategories).filter(
@@ -51,6 +65,19 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         // Find matching service based on amount ranges in the configured services (for one-time)
         const forsikringServices = serviceCategories.Forsikring;
         
+        // First check for exact range matches in configured services
+        for (const [serviceName, serviceData] of Object.entries(forsikringServices)) {
+            // Handle services with stored amount ranges (from ModeratorSettings)
+            if (typeof serviceData === 'object' && serviceData.startAmount && serviceData.endAmount) {
+                const startAmount = parseInt(serviceData.startAmount);
+                const endAmount = parseInt(serviceData.endAmount);
+                if (numAmount >= startAmount && numAmount <= endAmount) {
+                    return serviceName;
+                }
+            }
+        }
+
+        // Then check for name-based matches (legacy support)
         for (const [serviceName, serviceData] of Object.entries(forsikringServices)) {
             // Extract amount range from service name (e.g., "500-999kr", "1500kr+")
             const rangeMatch = serviceName.match(/^(\d+)-(\d+)kr/);
@@ -68,13 +95,6 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                 // Handle minimum amount like "1500kr+"
                 const [, minAmount] = minMatch;
                 if (numAmount >= parseInt(minAmount)) {
-                    return serviceName;
-                }
-            } else if (typeof serviceData === 'object' && serviceData.startAmount && serviceData.endAmount) {
-                // Handle services with stored amount ranges
-                const startAmount = parseInt(serviceData.startAmount);
-                const endAmount = parseInt(serviceData.endAmount);
-                if (numAmount >= startAmount && numAmount <= endAmount) {
                     return serviceName;
                 }
             }
@@ -127,47 +147,70 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         }
     }, [isOpen, staffId]);
 
-    const getMultiplierProgress = () => {
-        if (!formData.category || !formData.service) {
+    const getMultiplierProgress = (currentService = formData.service, currentCategory = formData.category) => {
+        if (!currentCategory || !currentService) {
             return null;
         }
         
+        let result = null;
+
         // For recurring forsikring, calculate stars directly based on amount (no multipliers)
-        if (formData.category === 'Forsikring' && insuranceType === 'Recurring') {
+        if (currentCategory === 'Forsikring' && insuranceType === 'Recurring') {
             const starsEarned = getRecurringForsikringStars(forsikringAmount);
-            if (starsEarned === 0) return null;
-            return { starsEarned, isMultiplier: false };
+            if (starsEarned !== 0) {
+                result = { starsEarned, isMultiplier: false };
+            }
         }
         
         // For one-time forsikring and other categories, use the standard multiplier logic
-        if (!serviceCategories[formData.category]) {
-            return null;
-        }
-        
-        const service = formData.service;
-        const categoryServices = serviceCategories[formData.category];
-        const serviceData = categoryServices[service];
-        
-        if (!serviceData) {
-            return null; // Service not found in configuration
-        }
-        
-        const existingCount = existingSales.filter(sale => sale.category === formData.category && sale.service === formData.service).length;
-        let multiplier = 1;
-        if (service.includes(' x2')) multiplier = 2;
-        else if (service.includes(' x3')) multiplier = 3;
-        else if (service.includes(' x4')) multiplier = 4;
-        else if (service.includes(' x5')) multiplier = 5;
+        else if (serviceCategories[currentCategory]) {
+            const categoryServices = serviceCategories[currentCategory];
+            const serviceData = categoryServices[currentService];
+            
+            if (serviceData) {
+                const existingCount = existingSales.filter(sale => sale.category === currentCategory && sale.service === currentService).length;
+                let multiplier = 1;
+                if (currentService.includes(' x2')) multiplier = 2;
+                else if (currentService.includes(' x3')) multiplier = 3;
+                else if (currentService.includes(' x4')) multiplier = 4;
+                else if (currentService.includes(' x5')) multiplier = 5;
 
-        if (multiplier > 1) {
-            const afterAdding = existingCount + 1;
-            const starsEarned = Math.floor(afterAdding / multiplier) - Math.floor(existingCount / multiplier);
-            const baseStars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
-            return { starsEarned: starsEarned * baseStars, isMultiplier: true, existing: existingCount, needed: multiplier, afterAdding };
+                if (multiplier > 1) {
+                    const afterAdding = existingCount + 1;
+                    const starsEarned = Math.floor(afterAdding / multiplier) - Math.floor(existingCount / multiplier);
+                    const baseStars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+                    result = { starsEarned: starsEarned * baseStars, isMultiplier: true, existing: existingCount, needed: multiplier, afterAdding };
+                } else {
+                    const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+                    result = { starsEarned: stars, isMultiplier: false };
+                }
+            }
         }
-        
-        const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
-        return { starsEarned: stars, isMultiplier: false };
+
+        // Apply Bonus if active and applicable
+        if (result && activeBonus && activeBonus.enabled) {
+            // Check if bonus is expired
+            const now = new Date();
+            const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+            
+            if (!endDate || endDate >= now) {
+                // Check if category matches (or if bonus is for all categories)
+                if (activeBonus.category === 'All' || activeBonus.category === currentCategory) {
+                    const originalStars = result.starsEarned;
+                    const bonusMultiplier = activeBonus.multiplier || 1;
+                    const newStars = Math.round(originalStars * bonusMultiplier);
+                    
+                    if (newStars !== originalStars) {
+                        result.starsEarned = newStars;
+                        result.hasBonus = true;
+                        result.originalStars = originalStars;
+                        result.bonusDescription = activeBonus.description;
+                    }
+                }
+            }
+        }
+
+        return result;
     };
 
     const handleSubmit = async (e) => {
@@ -190,7 +233,8 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         if (category === 'Forsikring' && insuranceType === 'Recurring') {
             starsToAdd = getRecurringForsikringStars(forsikringAmount);
         } else {
-            const multiplierInfo = getMultiplierProgress();
+            // Pass the calculated service to ensure we use the latest value
+            const multiplierInfo = getMultiplierProgress(service, category);
             starsToAdd = multiplierInfo ? multiplierInfo.starsEarned : 0;
         }
 
@@ -399,24 +443,41 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                                     )}
 
                                     {multiplierInfo && (
-                                        <div className="bg-[#009A44]/10 border border-[#009A44] rounded-lg p-4">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-medium text-gray-700">
-                                                    {multiplierInfo.isMultiplier ? 'Multiplier progresjon:' : 'Potensielle stjerner:'}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    {multiplierInfo.isMultiplier && (
-                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                                            multiplierInfo.afterAdding >= multiplierInfo.needed
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                        {multiplierInfo.existing}/{multiplierInfo.needed} → {multiplierInfo.afterAdding}/{multiplierInfo.needed}
+                                        <div className="space-y-2">
+                                            {multiplierInfo.hasBonus && (
+                                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-start gap-3">
+                                                    <div className="p-1 bg-purple-100 rounded text-purple-600 mt-0.5">
+                                                        <Zap size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-purple-900">Bonus aktiv!</p>
+                                                        <p className="text-xs text-purple-700">{multiplierInfo.bonusDescription}</p>
+                                                        <p className="text-xs text-purple-600 mt-1">
+                                                            Originalt: {multiplierInfo.originalStars} stjerner → <span className="font-bold">Nå: {multiplierInfo.starsEarned} stjerner</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="bg-[#009A44]/10 border border-[#009A44] rounded-lg p-4">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium text-gray-700">
+                                                        {multiplierInfo.isMultiplier ? 'Multiplier progresjon:' : 'Potensielle stjerner:'}
                                                     </span>
-                                                    )}
-                                                    <span className="text-[#009A44] font-bold flex items-center gap-1">
-                                                        +{multiplierInfo.starsEarned} <Star size={14} />
-                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        {multiplierInfo.isMultiplier && (
+                                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                                                multiplierInfo.afterAdding >= multiplierInfo.needed
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : 'bg-yellow-100 text-yellow-800'
+                                                            }`}>
+                                                            {multiplierInfo.existing}/{multiplierInfo.needed} → {multiplierInfo.afterAdding}/{multiplierInfo.needed}
+                                                        </span>
+                                                        )}
+                                                        <span className={`font-bold flex items-center gap-1 ${multiplierInfo.hasBonus ? 'text-purple-600' : 'text-[#009A44]'}`}>
+                                                            +{multiplierInfo.starsEarned} <Star size={14} />
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -425,7 +486,7 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
 
                                 <footer className="flex flex-col sm:flex-row justify-between items-center gap-3 p-4 sm:p-6 bg-gray-50 rounded-b-xl border-t border-gray-200 mt-auto">
                                     <div className="flex items-center gap-2 text-base sm:text-lg font-bold">
-                                        <Star className="text-[#009A44]" />
+                                        <Star className={multiplierInfo?.hasBonus ? "text-purple-600" : "text-[#009A44]"} />
                                         <span className="text-gray-900">{multiplierInfo?.starsEarned || 0}</span>
                                         <span className="text-gray-600 text-sm font-normal">potensielle stjerner</span>
                                     </div>
