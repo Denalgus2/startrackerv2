@@ -8,8 +8,7 @@ import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 import Admin from './pages/Admin.jsx';
-import Moderator from './pages/Moderator.jsx';
-import ModeratorSettings from './pages/ModeratorSettings.jsx';
+import ModeratorDashboard from './pages/ModeratorDashboard.jsx';
 import PendingApproval from './pages/PendingApproval.jsx';
 import NewWebsitePopup from './components/NewWebsitePopup.jsx';
 
@@ -75,8 +74,7 @@ function App() {
                     <Route path="/history" element={<ApprovedRoute><Layout><History /></Layout></ApprovedRoute>} />
 
                     {/* Role-specific routes */}
-                    <Route path="/moderator" element={<ModeratorRoute><Layout><Moderator /></Layout></ModeratorRoute>} />
-                    <Route path="/moderator/settings" element={<ModeratorRoute><Layout><ModeratorSettings /></Layout></ModeratorRoute>} />
+                    <Route path="/moderator" element={<ModeratorRoute><Layout><ModeratorDashboard /></Layout></ModeratorRoute>} />
                     <Route path="/admin" element={<AdminRoute><Layout><Admin /></Layout></AdminRoute>} />
                 </Routes>
             </ErrorBoundary>

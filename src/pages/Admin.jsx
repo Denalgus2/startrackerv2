@@ -33,6 +33,7 @@ import DeleteUserModal from '../components/DeleteUserModal';
 import { useNotification } from '../hooks/useNotification';
 import NotificationModal from '../components/NotificationModal';
 import { serviceCategories } from '../data/services';
+import FixBonusStars from '../components/admin/FixBonusStars';
 
 function Admin() {
     const { userRole, currentUser } = useAuth(); // Merged from both
@@ -708,6 +709,9 @@ function Admin() {
                         </div>
                     )}
                 </div>
+
+                {/* Bonus/Multiplier Fix Tool */}
+                <FixBonusStars />
 
                 {/* Whitelist Section */}
                 <div className="bg-surface rounded-xl border border-border-color p-4 sm:p-6 shadow-sm">
