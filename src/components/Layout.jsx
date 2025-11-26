@@ -92,7 +92,6 @@ function Layout({ children }) {
                             <NavLink to="/moderator" currentPath={location.pathname} badge={pendingBilagCount}>
                                 <BarChart3 size={18}/> Kontrollpanel
                             </NavLink>
-                            <NavLink to="/moderator/settings" currentPath={location.pathname}><Settings size={18}/> Innstillinger</NavLink>
                         </>
                     )}
 
@@ -165,9 +164,6 @@ function Layout({ children }) {
                                 <>
                                     <NavLink to="/moderator" currentPath={location.pathname} badge={pendingBilagCount} onClick={closeMobileMenu}>
                                         <BarChart3 size={18}/> Kontrollpanel
-                                    </NavLink>
-                                    <NavLink to="/moderator/settings" currentPath={location.pathname} onClick={closeMobileMenu}>
-                                        <Settings size={18}/> Innstillinger
                                     </NavLink>
                                 </>
                             )}

@@ -153,12 +153,42 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         }
         
         let result = null;
+        
+        // Check for active bonus first
+        let bonusMultiplier = 1;
+        let hasBonus = false;
+        let bonusDesc = '';
+        
+        if (activeBonus && activeBonus.enabled) {
+            const now = new Date();
+            const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
+            const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
+            
+            now.setHours(0, 0, 0, 0);
+            if (endDate) endDate.setHours(23, 59, 59, 999);
+            if (startDate) startDate.setHours(0, 0, 0, 0);
+            
+            if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
+                if (activeBonus.category === 'All' || activeBonus.category === currentCategory) {
+                    bonusMultiplier = activeBonus.multiplier || 1;
+                    hasBonus = true;
+                    bonusDesc = activeBonus.description;
+                }
+            }
+        }
 
         // For recurring forsikring, calculate stars directly based on amount (no multipliers)
         if (currentCategory === 'Forsikring' && insuranceType === 'Recurring') {
             const starsEarned = getRecurringForsikringStars(forsikringAmount);
             if (starsEarned !== 0) {
-                result = { starsEarned, isMultiplier: false };
+                const finalStars = Math.round(starsEarned * bonusMultiplier);
+                result = { 
+                    starsEarned: finalStars, 
+                    isMultiplier: false,
+                    hasBonus: hasBonus && finalStars !== starsEarned,
+                    originalStars: starsEarned,
+                    bonusDescription: bonusDesc
+                };
             }
         }
         
@@ -175,43 +205,41 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
                 else if (currentService.includes(' x4')) multiplier = 4;
                 else if (currentService.includes(' x5')) multiplier = 5;
 
+                const baseStars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
+
                 if (multiplier > 1) {
                     const afterAdding = existingCount + 1;
-                    const starsEarned = Math.floor(afterAdding / multiplier) - Math.floor(existingCount / multiplier);
-                    const baseStars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
-                    result = { starsEarned: starsEarned * baseStars, isMultiplier: true, existing: existingCount, needed: multiplier, afterAdding };
-                } else {
-                    const stars = typeof serviceData === 'object' ? serviceData.stars : serviceData;
-                    result = { starsEarned: stars, isMultiplier: false };
-                }
-            }
-        }
-
-        // Apply Bonus if active and applicable
-        if (result && activeBonus && activeBonus.enabled) {
-            // Check if bonus is expired
-            const now = new Date();
-            const endDate = activeBonus.endDate ? new Date(activeBonus.endDate) : null;
-            const startDate = activeBonus.startDate ? new Date(activeBonus.startDate) : null;
-            
-            // Reset time part for comparison
-            now.setHours(0, 0, 0, 0);
-            if (endDate) endDate.setHours(23, 59, 59, 999);
-            if (startDate) startDate.setHours(0, 0, 0, 0);
-            
-            if ((!endDate || endDate >= now) && (!startDate || startDate <= now)) {
-                // Check if category matches (or if bonus is for all categories)
-                if (activeBonus.category === 'All' || activeBonus.category === currentCategory) {
-                    const originalStars = result.starsEarned;
-                    const bonusMultiplier = activeBonus.multiplier || 1;
-                    const newStars = Math.round(originalStars * bonusMultiplier);
                     
-                    if (newStars !== originalStars) {
-                        result.starsEarned = newStars;
-                        result.hasBonus = true;
-                        result.originalStars = originalStars;
-                        result.bonusDescription = activeBonus.description;
-                    }
+                    // Improved logic: Apply bonus to the progress to allow smoother distribution
+                    // e.g. 2x bonus on x2 multiplier -> 1 star per sale
+                    const starsEarned = Math.floor((afterAdding * bonusMultiplier) / multiplier) - Math.floor((existingCount * bonusMultiplier) / multiplier);
+                    
+                    const totalStars = starsEarned * baseStars;
+                    
+                    // Calculate what it would have been without bonus for display
+                    const originalStarsEarned = Math.floor(afterAdding / multiplier) - Math.floor(existingCount / multiplier);
+                    const originalTotal = originalStarsEarned * baseStars;
+
+                    result = { 
+                        starsEarned: totalStars, 
+                        isMultiplier: true, 
+                        existing: existingCount, 
+                        needed: multiplier, 
+                        afterAdding,
+                        hasBonus: hasBonus && totalStars !== originalTotal,
+                        originalStars: originalTotal,
+                        bonusDescription: bonusDesc
+                    };
+                } else {
+                    const stars = baseStars;
+                    const finalStars = Math.round(stars * bonusMultiplier);
+                    result = { 
+                        starsEarned: finalStars, 
+                        isMultiplier: false,
+                        hasBonus: hasBonus && finalStars !== stars,
+                        originalStars: stars,
+                        bonusDescription: bonusDesc
+                    };
                 }
             }
         }
