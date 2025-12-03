@@ -68,19 +68,13 @@ function ModeratorDashboard() {
     // New Announcement State
     const [newAnnouncement, setNewAnnouncement] = useState({ title: '', message: '', type: 'info' });
 
-    // Permissions check
-    if (userRole !== 'moderator' && userRole !== 'admin') {
-        return (
-            <div className="text-center p-10">
-                <Shield className="mx-auto h-12 w-12 text-red-500"/>
-                <h2 className="mt-4 text-2xl font-bold">Ingen tilgang</h2>
-                <p className="mt-2 text-gray-600">Du har ikke rettigheter til å se denne siden.</p>
-            </div>
-        );
-    }
-
-    // Load all data
+    // Load all data - must be called unconditionally before any conditional returns
     useEffect(() => {
+        // Skip loading if user doesn't have permission
+        if (userRole !== 'moderator' && userRole !== 'admin') {
+            setLoading(false);
+            return;
+        }
         const loadData = async () => {
             setLoading(true);
 
@@ -166,7 +160,7 @@ function ModeratorDashboard() {
         };
 
         loadData();
-    }, []);
+    }, [userRole]);
 
     // --- Handlers for Bilag Requests ---
     const handleApprove = async (request) => {
@@ -559,6 +553,17 @@ function ModeratorDashboard() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-4 text-gray-600">Laster moderator dashboard...</p>
                 </div>
+            </div>
+        );
+    }
+
+    // Permissions check - placed after all hooks
+    if (userRole !== 'moderator' && userRole !== 'admin') {
+        return (
+            <div className="text-center p-10">
+                <Shield className="mx-auto h-12 w-12 text-red-500"/>
+                <h2 className="mt-4 text-2xl font-bold">Ingen tilgang</h2>
+                <p className="mt-2 text-gray-600">Du har ikke rettigheter til å se denne siden.</p>
             </div>
         );
     }
