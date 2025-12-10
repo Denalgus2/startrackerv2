@@ -106,12 +106,16 @@ function AddSaleModal({ isOpen, onClose, staffId, staffName }) {
         
         // Try fallback mapping only if the service actually exists
         const fallbackMappings = [
-            { condition: () => numAmount < 100, services: ['Mindre enn 100kr x3', 'Mindre enn 100kr', '0-99kr'] },
-            { condition: () => numAmount >= 100 && numAmount <= 299, services: ['100-299kr x2', '100-299kr'] },
+            { condition: () => numAmount >= 1 && numAmount <= 99, services: ['1-99kr'] },
+            { condition: () => numAmount >= 100 && numAmount <= 299, services: ['100-299kr'] },
             { condition: () => numAmount >= 300 && numAmount <= 499, services: ['300-499kr'] },
             { condition: () => numAmount >= 500 && numAmount <= 999, services: ['500-999kr'] },
             { condition: () => numAmount >= 1000 && numAmount <= 1499, services: ['1000-1499kr'] },
-            { condition: () => numAmount >= 1500, services: ['1500kr+', '1500-2000kr', '1500-3000kr'] }
+            { condition: () => numAmount >= 1500 && numAmount <= 2499, services: ['1500-2499kr'] },
+            { condition: () => numAmount >= 2500 && numAmount <= 3499, services: ['2500-3499kr'] },
+            { condition: () => numAmount >= 3500 && numAmount <= 4499, services: ['3500-4499kr'] },
+            { condition: () => numAmount >= 4500 && numAmount <= 5499, services: ['4500-5499kr'] },
+            { condition: () => numAmount >= 5500, services: ['5500kr+'] }
         ];
         
         for (const mapping of fallbackMappings) {

@@ -1,21 +1,19 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Percent, CheckSquare, Calendar, TrendingUp, DollarSign, Users, Clock } from 'lucide-react';
+import { X, CheckSquare, Calendar, TrendingUp, DollarSign, Users } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, updateDoc, doc, increment } from "firebase/firestore";
 import { db } from '../firebase';
-import { serviceCategories } from '../data/services';
 
 function WeeklyReviewModal({ isOpen, onClose, staffList }) {
     const [weeklyData, setWeeklyData] = useState({});
     const [selectedWeek, setSelectedWeek] = useState(getCurrentWeek());
     const [saving, setSaving] = useState(false);
 
-    // Get current week info
     function getCurrentWeek() {
         const now = new Date();
         const startOfWeek = new Date(now);
         const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday as start of week
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
         startOfWeek.setDate(diff);
         startOfWeek.setHours(0, 0, 0, 0);
 
@@ -31,41 +29,24 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
         };
     }
 
-    // Calculate week number (corrected for Norwegian week numbering)
     function getWeekNumber(date) {
-        // Create a copy of the date to avoid modifying the original
         const targetDate = new Date(date);
-
-        // Set to nearest Thursday (current date + 4 - current day of week)
-        // Sunday = 0, Monday = 1, etc. We want Monday = 1, Sunday = 7
         const dayOfWeek = targetDate.getDay();
         const daysToThursday = 4 - (dayOfWeek === 0 ? 7 : dayOfWeek);
         targetDate.setDate(targetDate.getDate() + daysToThursday);
-
-        // Get the year of this Thursday
         const year = targetDate.getFullYear();
-
-        // Find January 4th of this year (which is always in week 1)
         const jan4 = new Date(year, 0, 4);
-
-        // Calculate the difference in weeks
         const weekNumber = Math.ceil(((targetDate - jan4) / 86400000 + jan4.getDay() + 1) / 7);
-
         return weekNumber;
     }
 
-    // Format date for display
     function formatDate(date) {
-        return date.toLocaleDateString('no-NO', {
-            day: 'numeric',
-            month: 'long'
-        });
+        return date.toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
     }
 
-    // Change week
     function changeWeek(direction) {
         const newStart = new Date(selectedWeek.start);
-        newStart.setDate(newStart.getDate() + (direction * 7));
+        newStart.setDate(newStart.getDate() + direction * 7);
 
         const newEnd = new Date(newStart);
         newEnd.setDate(newStart.getDate() + 6);
@@ -89,196 +70,117 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
         }));
     };
 
+    const getSupermarginStars = (value) => {
+        const percent = parseFloat(value);
+        if (isNaN(percent)) return 0;
+        if (percent >= 100) return 5;
+        if (percent >= 80) return 4;
+        if (percent >= 60) return 3;
+        if (percent >= 40) return 2;
+        if (percent >= 20) return 1;
+        return 0;
+    };
+
+    const getCsPerTimeStars = (value) => {
+        const amount = parseFloat(value);
+        if (isNaN(amount)) return 0;
+        if (amount >= 200) return 5;
+        if (amount >= 150) return 4;
+        if (amount >= 100) return 3;
+        if (amount >= 50) return 2;
+        if (amount >= 20) return 1;
+        return 0;
+    };
+
+    const getKundeklubbAntallStars = (value) => {
+        const count = parseInt(value, 10);
+        if (isNaN(count)) return 0;
+        if (count >= 15) return 5;
+        if (count >= 10) return 4;
+        if (count >= 7) return 3;
+        if (count >= 5) return 2;
+        if (count >= 3) return 1;
+        return 0;
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
-            // First pass: Calculate supermargin and CS per time to find highest values
-            let highestSupermargin = 0;
-            let highestSupermarginStaffId = null;
-            let highestCSPerTime = 0;
-            let highestCSPerTimeStaffId = null;
-            let highestKundeklubbAntall = 0;
-            let highestKundeklubbAntallStaffId = null;
-
-            for (const [staffId, data] of Object.entries(weeklyData)) {
-                // Find highest supermargin (>25%)
-                if (data.supermargin) {
-                    const supermargin = parseFloat(data.supermargin);
-                    if (supermargin > 25 && supermargin > highestSupermargin) {
-                        highestSupermargin = supermargin;
-                        highestSupermarginStaffId = staffId;
-                    }
-                }
-
-                // Find highest CS per time (>25 NOK)
-                if (data.csPerTime) {
-                    const csPerTime = parseFloat(data.csPerTime);
-                    if (csPerTime > 25 && csPerTime > highestCSPerTime) {
-                        highestCSPerTime = csPerTime;
-                        highestCSPerTimeStaffId = staffId;
-                    }
-                }
-
-                // Find highest Kundeklubb antall
-                if (data.kundeklubbAntall) {
-                    const antall = parseInt(data.kundeklubbAntall);
-                    if (antall > highestKundeklubbAntall) {
-                        highestKundeklubbAntall = antall;
-                        highestKundeklubbAntallStaffId = staffId;
-                    }
-                }
-            }
-
-            // Second pass: Calculate and award stars for each staff member
             for (const [staffId, data] of Object.entries(weeklyData)) {
                 let starsToAward = 0;
                 const staffMember = staffList.find(s => s.id === staffId);
-
                 if (!staffMember) continue;
 
-                // Calculate Supermargin stars (>25% = 5 stars, highest = 6 stars)
-                if (data.supermargin) {
-                    const supermargin = parseFloat(data.supermargin);
-                    if (supermargin > 25) {
-                        const stars = (staffId === highestSupermarginStaffId) ? 6 : 5;
-                        starsToAward += stars;
-                    }
-                }
+                starsToAward += getSupermarginStars(data.supermargin);
+                starsToAward += getCsPerTimeStars(data.csPerTime);
+                starsToAward += getKundeklubbAntallStars(data.kundeklubbAntall);
 
-                // Calculate CS per time stars (>25 NOK = 5 stars, highest = 6 stars)
-                if (data.csPerTime) {
-                    const csPerTime = parseFloat(data.csPerTime);
-                    if (csPerTime > 25) {
-                        const stars = (staffId === highestCSPerTimeStaffId) ? 6 : 5;
-                        starsToAward += stars;
-                    }
-                }
-
-                // Calculate Kundeklubb antall stars (highest gets 5 stars)
-                if (data.kundeklubbAntall && staffId === highestKundeklubbAntallStaffId) {
-                    starsToAward += 5;
-                }
-
-                // Calculate Kundeklubb percent stars (existing logic - keep for backward compatibility)
-                if (data.kundeklubb) {
-                    const percentage = parseInt(data.kundeklubb);
-                    let serviceType = '';
-                    if (percentage >= 100) serviceType = '100%';
-                    else if (percentage >= 80) serviceType = '80%';
-                    else if (percentage >= 60) serviceType = '60%';
-                    else if (percentage >= 40) serviceType = '40%';
-                    else if (percentage >= 20) serviceType = '20%';
-
-                    if (serviceType) {
-                        starsToAward += serviceCategories['Kundeklubb'][serviceType];
-                    }
-                }
-
-                // Calculate Kunnskap Sjekkliste stars
                 if (data.kunnskapSjekkliste) {
-                    starsToAward += 3; // Kunnskap Sjekkliste gives 3 stars
+                    starsToAward += 3;
                 }
 
-                // Calculate Todolist stars
                 if (data.todolist === 'fylt-ut-1-uke') {
-                    starsToAward += 1; // Fylt ut 1 uke gives 1 star
+                    starsToAward += 1;
                 } else if (data.todolist === 'alt-ja-1-uke') {
-                    starsToAward += 2; // Alt JA 1 uke gives 2 stars
+                    starsToAward += 2;
                 }
 
-                // Update staff member's star count if they earned stars
                 if (starsToAward > 0) {
                     const staffRef = doc(db, 'staff', staffId);
                     await updateDoc(staffRef, { stars: increment(starsToAward) });
 
-                    // Create sales records for tracking
                     const salesPromises = [];
 
-                    // Add supermargin sale if applicable
-                    if (data.supermargin) {
+                    const supermarginStars = getSupermarginStars(data.supermargin);
+                    if (supermarginStars > 0) {
                         const supermargin = parseFloat(data.supermargin);
-                        if (supermargin > 25) {
-                            const stars = (staffId === highestSupermarginStaffId) ? 6 : 5;
-                            salesPromises.push(addDoc(collection(db, 'sales'), {
-                                staffId,
-                                staffName: staffMember.name,
-                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-SUPERMARGIN-${supermargin}%`,
-                                category: 'Annet',
-                                service: `Supermargin ${supermargin}%`,
-                                stars: stars,
-                                timestamp: serverTimestamp(),
-                                weeklyReview: true,
-                                reviewWeek: selectedWeek.weekNumber,
-                                reviewYear: selectedWeek.year,
-                                isHighest: staffId === highestSupermarginStaffId
-                            }));
-                        }
+                        salesPromises.push(addDoc(collection(db, 'sales'), {
+                            staffId,
+                            staffName: staffMember.name,
+                            bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-SUPERMARGIN-${supermargin}%`,
+                            category: 'Annet',
+                            service: `Supermargin ${supermargin}%`,
+                            stars: supermarginStars,
+                            timestamp: serverTimestamp(),
+                            weeklyReview: true,
+                            reviewWeek: selectedWeek.weekNumber,
+                            reviewYear: selectedWeek.year
+                        }));
                     }
 
-                    // Add CS per time sale if applicable
-                    if (data.csPerTime) {
+                    const csStars = getCsPerTimeStars(data.csPerTime);
+                    if (csStars > 0) {
                         const csPerTime = parseFloat(data.csPerTime);
-                        if (csPerTime > 25) {
-                            const stars = (staffId === highestCSPerTimeStaffId) ? 6 : 5;
-                            salesPromises.push(addDoc(collection(db, 'sales'), {
-                                staffId,
-                                staffName: staffMember.name,
-                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-CS-PER-TIME-${csPerTime}kr`,
-                                category: 'Annet',
-                                service: `CS per time ${csPerTime}kr`,
-                                stars: stars,
-                                timestamp: serverTimestamp(),
-                                weeklyReview: true,
-                                reviewWeek: selectedWeek.weekNumber,
-                                reviewYear: selectedWeek.year,
-                                isHighest: staffId === highestCSPerTimeStaffId
-                            }));
-                        }
+                        salesPromises.push(addDoc(collection(db, 'sales'), {
+                            staffId,
+                            staffName: staffMember.name,
+                            bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-CS-PER-TIME-${csPerTime}kr`,
+                            category: 'Annet',
+                            service: `CS per time ${csPerTime}kr`,
+                            stars: csStars,
+                            timestamp: serverTimestamp(),
+                            weeklyReview: true,
+                            reviewWeek: selectedWeek.weekNumber,
+                            reviewYear: selectedWeek.year
+                        }));
                     }
 
-                    // Add Kundeklubb antall sale if applicable (highest gets 5 stars)
-                    if (data.kundeklubbAntall && staffId === highestKundeklubbAntallStaffId) {
+                    const kundeklubbStars = getKundeklubbAntallStars(data.kundeklubbAntall);
+                    if (kundeklubbStars > 0) {
                         salesPromises.push(addDoc(collection(db, 'sales'), {
                             staffId,
                             staffName: staffMember.name,
                             bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNDEKLUBB-ANTALL-${data.kundeklubbAntall}`,
                             category: 'Kundeklubb',
-                            service: 'Høyest antall',
-                            stars: 5,
+                            service: `Kundeklubb ${data.kundeklubbAntall} stk`,
+                            stars: kundeklubbStars,
                             timestamp: serverTimestamp(),
                             weeklyReview: true,
                             reviewWeek: selectedWeek.weekNumber,
-                            reviewYear: selectedWeek.year,
-                            isHighest: true
+                            reviewYear: selectedWeek.year
                         }));
                     }
 
-                    // Add kundeklubb percent sale if applicable (existing logic)
-                    if (data.kundeklubb) {
-                        const percentage = parseInt(data.kundeklubb);
-                        let serviceType = '';
-                        if (percentage >= 100) serviceType = '100%';
-                        else if (percentage >= 80) serviceType = '80%';
-                        else if (percentage >= 60) serviceType = '60%';
-                        else if (percentage >= 40) serviceType = '40%';
-
-                        if (serviceType) {
-                            salesPromises.push(addDoc(collection(db, 'sales'), {
-                                staffId,
-                                staffName: staffMember.name,
-                                bilag: `UKENTLIG-UKE${selectedWeek.weekNumber}-${selectedWeek.year}-KUNDEKLUBB-${percentage}%`,
-                                category: 'Kundeklubb',
-                                service: serviceType,
-                                stars: serviceCategories['Kundeklubb'][serviceType],
-                                timestamp: serverTimestamp(),
-                                weeklyReview: true,
-                                reviewWeek: selectedWeek.weekNumber,
-                                reviewYear: selectedWeek.year
-                            }));
-                        }
-                    }
-
-                    // Add kunnskap sjekkliste sale if applicable
                     if (data.kunnskapSjekkliste) {
                         salesPromises.push(addDoc(collection(db, 'sales'), {
                             staffId,
@@ -294,7 +196,6 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                         }));
                     }
 
-                    // Add todolist sale if applicable
                     if (data.todolist) {
                         const serviceType = data.todolist === 'fylt-ut-1-uke'
                             ? 'Todolist - Fylt ut 1 uke'
@@ -316,12 +217,10 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                         }));
                     }
 
-                    // Execute all sales record creation
                     await Promise.all(salesPromises);
                 }
             }
 
-            // Prepare the weekly review data for records
             const reviewData = {
                 weekNumber: selectedWeek.weekNumber,
                 year: selectedWeek.year,
@@ -330,10 +229,9 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                 dateRange: `${formatDate(selectedWeek.start)} - ${formatDate(selectedWeek.end)}`,
                 staffData: weeklyData,
                 createdAt: serverTimestamp(),
-                createdBy: 'admin' // You could use current user's email here
+                createdBy: 'admin'
             };
 
-            // Save to Firestore
             await addDoc(collection(db, 'weeklyReviews'), reviewData);
 
             alert(`Ukentlig gjennomgang for uke ${selectedWeek.weekNumber} er lagret og stjerner er tildelt!`);
@@ -401,7 +299,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Supermargin %
-                                                <span className="text-xs text-gray-500 ml-2">(&gt;25% = 5⭐, høyest = 6⭐)</span>
+                                                <span className="text-xs text-gray-500 ml-2">(20/40/60/80/100% ⇒ 1-5⭐)</span>
                                             </label>
                                             <div className="relative">
                                                 <TrendingUp size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -420,7 +318,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 CS per time (kr)
-                                                <span className="text-xs text-gray-500 ml-2">(&gt;25kr = 5⭐, høyest = 6⭐)</span>
+                                                <span className="text-xs text-gray-500 ml-2">(20/50/100/150/200+ ⇒ 1-5⭐)</span>
                                             </label>
                                             <div className="relative">
                                                 <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -438,7 +336,7 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                         <div className="relative">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Kundeklubb Antall
-                                                <span className="text-xs text-gray-500 ml-2">(høyest = 5⭐)</span>
+                                                <span className="text-xs text-gray-500 ml-2">(3-4/5-6/7-9/10-14/15+ ⇒ 1-5⭐)</span>
                                             </label>
                                             <div className="relative">
                                                 <Users size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -448,24 +346,6 @@ function WeeklyReviewModal({ isOpen, onClose, staffList }) {
                                                     placeholder="0"
                                                     value={weeklyData[staff.id]?.kundeklubbAntall || ''}
                                                     onChange={(e) => handleDataChange(staff.id, 'kundeklubbAntall', e.target.value)}
-                                                    className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="relative">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Kundeklubb %
-                                                <span className="text-xs text-gray-500 ml-2">(eksisterende system)</span>
-                                            </label>
-                                            <div className="relative">
-                                                <Percent size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="100"
-                                                    placeholder="0-100"
-                                                    value={weeklyData[staff.id]?.kundeklubb || ''}
-                                                    onChange={(e) => handleDataChange(staff.id, 'kundeklubb', e.target.value)}
                                                     className="pl-9 w-full py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#009A44] outline-none"
                                                 />
                                             </div>
